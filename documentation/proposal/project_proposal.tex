@@ -1,0 +1,67 @@
+\documentclass[titlepage,11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{textcomp}
+\usepackage{amsmath}
+
+\title{Final Project Proposal}
+\author{Robinson Merillat, Matt Clayton, Michael Niemeyer}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+The stage is set, the people are in place, it's the morning of the grand opening of the 
+park! Ra greets you at the front gate. "Well done!" he says. "You have truly proved yourself
+as an exemplary architect time and again. In fact, you may even be worthy of the title of a 
+god! I have but one last task for you, if you should complete it, you shall have a place 
+with us." With that, he hands you a scroll and walks off to discuss matters with other
+architects that have been assisting with the park's development. You open the scroll,
+it reads....\\
+
+\noindent\fbox{%
+    \parbox{\textwidth}{%
+        \begin{center}
+            Welcome to the real light show!\\
+        \end{center}
+        
+        I am quite pleased with the light show that you created that will be performed daily at 
+        the park. However, for the grand opening this evening, I will be inviting a live band to 
+        kick things off and we need a light show that is truly one of a kind! I have tasked you to 
+        work with two other architects to complete this task, best of luck and godspeed!
+    }%
+}
+
+\section{Description}
+
+The goal of this project is to create a light show "music video" with the use of a series of particle
+systems. Various particle systems will emit as a light source while others do not (fountain vs. firework).
+Systems that emit light will affect other objects within the scene. The setting of the light show will be 
+at Auru Park! Complete with buildings (lab 12), a pyramid, and the very roller coaster that we designed! 
+The light show can play on loop or be stopped. At any time the user can use various keys on the 
+keyboard to make different particle systems fire off. If the user has had enough of watching the light show 
+from afar, they can go first person as a textured model (possibly hellknight) to run around the park.
+Careful though, if the hellknight stops moving, he may start to dance (intended easter egg #1).
+
+Various textures and materials will be used for buildings/pyramid and the ground around the park.
+The entirety of the park will be held within a skysphere (skybox as a fallback)
+
+Many different shaders will be used to generate different effects for the different types of 
+particle systems that are planned to be developed. These include but are not limited to: laser lights,
+water fountain, fireworks (the big boomers), and sparks.
+
+As a final goal, we would like to create a video recording of the light show with music overlayed as
+a park advertisement.
+
+\section{Forseeable Challenges}
+Some forseeable challenges include:
+\begin{itemize}
+    \item opengl 3.3 bezier curve (camera movement along curve)
+    \item modifying skeletal animation for hellknight or similar model (walking/dancing)
+    \item multiple lights acting on multiple objects in the  scene
+    \item skysphere vs skybox
+    \item lining up light show with song
+\end{itemize}
+
+\end{document}
