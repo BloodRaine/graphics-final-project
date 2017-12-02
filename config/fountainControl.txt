@@ -1,0 +1,1 @@
+F 0 -2 0 10 0.5 1 55 60 25 BubbleSimple.png
