@@ -21,13 +21,13 @@
 ##
 ########################################
 
-TARGET = aaru_park
-# OBJECTS = main.o
+TARGET = a7
+OBJECTS = src/main.o
 
-LOCAL_INC_PATH = /Users/jpaone/Desktop/include
-LOCAL_LIB_PATH = /Users/jpaone/Desktop/lib
+LOCAL_INC_PATH = ../include
+LOCAL_LIB_PATH = ../lib
 
-BUILDING_IN_LAB = 0
+BUILDING_IN_LAB = 1
 
 #########################################################################################
 #########################################################################################
@@ -46,12 +46,7 @@ BUILDING_IN_LAB = 0
 #############################
 
 CXX    = g++
-CFLAGS = -Wall -g -std=c++11
-
-# ALL .cpp files.
-SRCS = $(shell find src -name '*.cpp')
-OBJS = $(SRCS:src/%.cpp=bin/%.o)
-DEPS = $(SRCS:src/%.cpp=bin/%.d)
+CFLAGS = -Wall -g
 
 LAB_INC_PATH = Z:/CSCI441/include
 LAB_LIB_PATH = Z:/CSCI441/lib
@@ -120,18 +115,9 @@ endif
 all: $(TARGET)
 
 clean:
-	rm -f $(OBJS) $(TARGET)
-
-# Ensure the bin/ directories are created.
-$(SRCS): | bin
-
-# Mirror the directory structure of src/ under bin/
-bin:
-	mkdir -p $(shell find src -type d | sed "s/src/bin/")
+	rm -f $(OBJECTS) $(TARGET)
 	
-# Build objects.
-bin/%.o: src/%.cpp
-	$(CXX) $(CPPFLAGS) $< -c -o $@
+build: $(OBJECTS)
 
 new: clean $(TARGET)
 
@@ -154,8 +140,8 @@ depend:
 .cpp.o: 	
 	$(CXX) $(CFLAGS) $(INCPATH) -c -o $@ $<
 
-$(TARGET): $(OBJS) 
+$(TARGET): $(OBJECTS) 
 	$(CXX) $(CFLAGS) -o $@ $^ $(LIBPATH) $(LIBS)
 
 # DEPENDENCIES
--include $(DEPS)
+main.o: main.cpp

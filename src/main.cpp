@@ -68,6 +68,8 @@ CSCI441::ModelLoader *model = NULL;
 
 GLuint texturedQuadVAO;
 
+GLfloat platformSize = 20.0f;
+
 //******************************************************************************
 //
 // Helper Functions
@@ -417,7 +419,7 @@ void setupBuffers()
 	//
 	// PLATFORM
 
-	GLfloat platformSize = 20.0f;
+	
 
 	VertexTextured platformVertices[4] = {
 		{-platformSize, 0.0f, -platformSize, 0.0f, 0.0f}, // 0 - BL
@@ -580,7 +582,7 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, (void *)0);
 
 	// translate the model up slightly to prevent depth fighting on the platform
-	m = glm::translate(m, glm::vec3(4, 0.1, -18));
+	m = glm::translate(m, glm::vec3(4, 0.1, -platformSize));
 
 	glm::mat4 mv = viewMatrix * m;
 	glm::mat4 nMtx = glm::transpose(glm::inverse(mv));
@@ -593,7 +595,17 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &nMtx[0][0]);
 	glUniform1i(uniform_phong_txtr_loc, 0);
 
-	// draw the model
+	// draw the buildings
+	model->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
+				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
+				GL_TEXTURE0);
+				
+	m = glm::translate(m, glm::vec3(0, 0, platformSize * 2.0f));
+	mv = viewMatrix * m;
+	nMtx = glm::transpose(glm::inverse(mv));
+	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &mv[0][0]);
+	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &nMtx[0][0]);
+	//draw the second set of buildings
 	model->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
