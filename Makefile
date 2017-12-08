@@ -21,13 +21,14 @@
 ##
 ########################################
 
-TARGET = a7
-OBJECTS = src/main.o
+TARGET = aaru_park
+OBJECTS = src/main.o src/ParticleSystem.o src/FountainParticleSystem.o src/md5anim.o src/md5mesh.o 
+# src/lab08.o
 
 LOCAL_INC_PATH = ../include
 LOCAL_LIB_PATH = ../lib
 
-BUILDING_IN_LAB = 1
+BUILDING_IN_LAB = 0
 
 #########################################################################################
 #########################################################################################
@@ -37,16 +38,17 @@ BUILDING_IN_LAB = 1
 ## THERE IS NO NEED TO MODIFY ANYTHING BELOW THIS LINE
 ## IT WILL WORK FOR YOU
 
-
-
-
-
 #############################
 ## COMPILING INFO
 #############################
 
 CXX    = g++
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -std=c++11
+
+# ALL .cpp files.
+SRCS = $(shell find src -name '*.cpp')
+OBJS = $(SRCS:src/%.cpp=bin/%.o)
+DEPS = $(SRCS:src/%.cpp=bin/%.d)
 
 LAB_INC_PATH = Z:/CSCI441/include
 LAB_LIB_PATH = Z:/CSCI441/lib
@@ -143,5 +145,16 @@ depend:
 $(TARGET): $(OBJECTS) 
 	$(CXX) $(CFLAGS) -o $@ $^ $(LIBPATH) $(LIBS)
 
-# DEPENDENCIES
-main.o: main.cpp
+# Ensure the bin/ directories are created.
+$(SRCS): | bin
+
+# Mirror the directory structure of src/ under bin/
+bin:
+	mkdir -p $(shell find src -type d | sed "s/src/bin/")
+
+# Build objects.
+bin/%.o: src/%.cpp
+	$(CXX) $(CPPFLAGS) $< -c -o $@
+
+# Auto dependency management.
+-include $(DEPS)

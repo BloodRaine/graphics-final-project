@@ -25,7 +25,7 @@
 #include <SOIL/SOIL.h> // for image loading
 
 #include <stdio.h>  // for printf functionality
-#include <stdlib.h> // for exit functionality
+// #include <stdlib.h> // for exit functionality
 
 #include <vector> // for vector
 
@@ -33,10 +33,19 @@
 #include <CSCI441/modelLoader3.hpp>
 #include <CSCI441/objects3.hpp>
 #include <CSCI441/ShaderProgram3.hpp>
+#include "FountainParticleSystem.h"
+
+#include "../include/MD5/md5model.h" // for our MD5 Model 
 
 //******************************************************************************
 //
 // Global Parameters
+
+struct VertexTextured
+{
+	float x, y, z;
+	float s, t;
+};
 
 int windowWidth, windowHeight;
 bool controlDown = false;
@@ -44,7 +53,7 @@ bool leftMouseDown = false;
 glm::vec2 mousePosition(-9999.0f, -9999.0f);
 
 glm::vec3 cameraAngles(1.82f, 2.01f, 25.0f);
-glm::vec3 eyePoint(10.0f, 10.0f, 10.0f);
+glm::vec3 eyePoint(3.0f, 3.0f, 3.0f);
 glm::vec3 lookAtPoint(0.0f, 0.0f, 0.0f);
 glm::vec3 upVector(0.0f, 1.0f, 0.0f);
 
@@ -54,21 +63,42 @@ GLuint platformTextureHandle;
 GLuint skyboxVAOds[6];   // all of our skybox VAOs
 GLuint skyboxHandles[6]; // all of our skybox handles
 
-CSCI441::ShaderProgram *textureShaderProgram = NULL;
+CSCI441::ShaderProgram *textureShaderProgram, *hellknightShaderProgram, *hellknightSkeletonShaderProgram = NULL;
 GLint uniform_modelMtx_loc, uniform_viewProjetionMtx_loc, uniform_tex_loc, uniform_color_loc;
 GLint attrib_vPos_loc, attrib_vTextureCoord_loc;
 
 CSCI441::ShaderProgram *modelPhongShaderProgram = NULL;
 GLint uniform_phong_mv_loc, uniform_phong_v_loc, uniform_phong_p_loc, uniform_phong_norm_loc;
 GLint uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_ma_loc, uniform_phong_s_loc;
-GLint uniform_phong_txtr_loc;
-GLint attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc;
+GLint uniform_phong_txtr_loc, attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc;
 
 CSCI441::ModelLoader *model = NULL;
 
 GLuint texturedQuadVAO;
 
 GLfloat platformSize = 20.0f;
+
+CSCI441::ModelLoader *fountain = NULL;
+
+vector<ParticleSystem*> systems;
+
+// Hellknight vars
+md5_model_t md5model;
+md5_anim_t md5animation;
+
+md5_joint_t *skeleton = NULL;
+anim_info_t animInfo;
+
+bool animated = false;
+bool displaySkeleton = false;
+bool displayWireframe = false;
+bool displayMesh = true;
+
+GLuint vaoHellknight;
+
+GLuint vbodsHellknight[2];
+
+GLint pt_model_location, pt_view_location, pt_projection_location, pt_texture_location;
 
 //******************************************************************************
 //
@@ -137,6 +167,12 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 {
 	if ((key == GLFW_KEY_ESCAPE || key == 'Q') && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
+	else if (key == GLFW_KEY_S && action == GLFW_PRESS)
+		displaySkeleton = !displaySkeleton;
+	else if (key == GLFW_KEY_W && action == GLFW_PRESS)
+		displayWireframe = !displayWireframe;
+	else if (key == GLFW_KEY_M && action == GLFW_PRESS)
+		displayMesh = !displayMesh;
 }
 
 // mouse_button_callback() /////////////////////////////////////////////////////
@@ -247,6 +283,50 @@ static void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
 //
 // Setup Functions
 
+void setupSkybox() {
+
+}
+
+void setupParticleSystems() {
+	// main fountain particle system
+	// systems.push_back(FountainParticleSystem());
+}
+
+// loadMD5Model() //////////////////////////////////////////////////////////////
+//
+//      Load in the MD5 Model
+//
+////////////////////////////////////////////////////////////////////////////////
+void loadMD5Model()
+{
+	/* Load MD5 model file */
+	if (!ReadMD5Model("models/monsters/hellknight/mesh/hellknight.md5mesh", &md5model))
+		exit(EXIT_FAILURE);
+
+	AllocVertexArrays(); // allocate memory for arrays and create VAO for MD5 Model
+
+	/* Load MD5 animation file */
+	if (!ReadMD5Anim("models/monsters/hellknight/animations/idle2.md5anim", &md5animation))
+	{
+		exit(EXIT_FAILURE);
+	}
+	else
+	{
+		// successful loading...set up animation parameters
+		animInfo.curr_frame = 0;
+		animInfo.next_frame = 1;
+
+		animInfo.last_time = 0;
+		animInfo.max_time = 1.0 / md5animation.frameRate;
+
+		/* Allocate memory for animated skeleton */
+		skeleton = (md5_joint_t *)
+			malloc(sizeof(md5_joint_t) * md5animation.num_joints);
+	}
+
+	printf("\n");
+}
+
 // setupGLFW() /////////////////////////////////////////////////////////////////
 //
 //		Used to setup everything GLFW related.  This includes the OpenGL context
@@ -267,7 +347,7 @@ GLFWwindow *setupGLFW()
 		exit(EXIT_FAILURE);
 	}
 	else
-	{
+	{ 
 		fprintf(stdout, "[INFO]: GLFW initialized\n");
 	}
 
@@ -393,6 +473,13 @@ void setupShaders()
 	attrib_phong_vpos_loc = modelPhongShaderProgram->getAttributeLocation("vPos");
 	attrib_phong_vnorm_loc = modelPhongShaderProgram->getAttributeLocation("vNormal");
 	attrib_phong_vtex_loc = modelPhongShaderProgram->getAttributeLocation("vTexCoord");
+
+	hellknightShaderProgram = new CSCI441::ShaderProgram("shaders/hellknightShader.v.glsl", "shaders/hellknightShader.f.glsl");
+	pt_model_location = hellknightShaderProgram->getUniformLocation("model");
+	pt_view_location = hellknightShaderProgram->getUniformLocation("view");
+	pt_projection_location = hellknightShaderProgram->getUniformLocation("projection");
+	pt_texture_location = hellknightShaderProgram->getUniformLocation("tex");
+
 }
 
 // setupBuffers() //////////////////////////////////////////////////////////////
@@ -402,12 +489,9 @@ void setupShaders()
 ////////////////////////////////////////////////////////////////////////////////
 void setupBuffers()
 {
-	struct VertexTextured
-	{
-		float x, y, z;
-		float s, t;
-	};
-
+	
+	// setupSkybox();
+	
 	//////////////////////////////////////////
 	//
 	// Model
@@ -418,8 +502,6 @@ void setupBuffers()
 	//////////////////////////////////////////
 	//
 	// PLATFORM
-
-	
 
 	VertexTextured platformVertices[4] = {
 		{-platformSize, 0.0f, -platformSize, 0.0f, 0.0f}, // 0 - BL
@@ -452,8 +534,7 @@ void setupBuffers()
 	//
 	// SKYBOX
 
-	unsigned short skyboxIndices[4] = {
-		0, 1, 2, 3};
+	unsigned short skyboxIndices[4] = {0, 1, 2, 3};
 
 	GLfloat skyboxDim = 40.0f;
 	VertexTextured skyboxVertices[6][4] = {
@@ -554,9 +635,40 @@ void setupBuffers()
 //		This method will contain all of the objects to be drawn.
 //
 ////////////////////////////////////////////////////////////////////////////////
-void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
+void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaTime)
 {
 	glm::mat4 m, vp = projectionMatrix * viewMatrix;
+
+	hellknightShaderProgram->useProgram();
+
+	//
+	glm::mat4 mod = glm::rotate(glm::mat4(), -90.0f * 3.14159f / 180.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+	// glm::mat4 mod = glm::mat4();
+	mod = glm::scale(mod, glm::vec3(0.04f, 0.04f, 0.04f));
+	glUniformMatrix4fv(pt_model_location, 1, GL_FALSE, &mod[0][0]);
+	glUniformMatrix4fv(pt_view_location, 1, GL_FALSE, &viewMatrix[0][0]);
+	glUniformMatrix4fv(pt_projection_location, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+	/* Calculate current and next frames */
+	Animate(&md5animation, &animInfo, deltaTime);
+
+	/* Interpolate skeletons between two frames */
+	InterpolateSkeletons (md5animation.skelFrames[animInfo.curr_frame],
+												md5animation.skelFrames[animInfo.next_frame],
+												md5animation.num_joints,
+												animInfo.last_time * md5animation.frameRate,
+												skeleton);
+
+	/* Draw each mesh of the model */
+	for( int i = 0; i < md5model.num_meshes; ++i ) {
+			md5_mesh_t mesh = md5model.meshes[i];
+			PrepareMesh( &mesh, skeleton );
+
+			if( displayWireframe )
+				glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
+
+				DrawMesh( &mesh , pt_model_location, hellknightShaderProgram->getShaderProgramHandle()); 
+	}
 
 	// Use our texture shader program
 	textureShaderProgram->useProgram();
@@ -629,8 +741,11 @@ int main(int argc, char *argv[])
 	setupShaders();					  // load our shaders into memory
 	setupBuffers();					  // load all our VAOs and VBOs into memory
 	setupTextures();				  // load all textures into memory
+	loadMD5Model();					  // load the MD5 Model & animation if provided
 
 	convertSphericalToCartesian(); // set up our camera position
+
+	double current_time = 0, last_time = 0;
 
 	CSCI441::setVertexAttributeLocations(attrib_vPos_loc, -1, attrib_vTextureCoord_loc);
 	CSCI441::drawSolidSphere(1, 16, 16); // strange hack I need to make spheres draw - don't have time to investigate why..it's a bug with my library
@@ -643,6 +758,10 @@ int main(int argc, char *argv[])
 		// Get the size of our window framebuffer.  Ideally this should be the same dimensions as our window, but
 		// when using a Retina display the actual window can be larger than the requested window.  Therefore
 		// query what the actual size of the window we are rendering to is.
+
+		last_time = current_time;	 // time the last frame was rendered
+		current_time = glfwGetTime(); // time this frame is starting at
+
 		glfwGetFramebufferSize(window, &windowWidth, &windowHeight);
 
 		glViewport(0, 0, windowWidth, windowHeight);
@@ -653,13 +772,13 @@ int main(int argc, char *argv[])
 		// set the projection matrix based on the window size
 		// use a perspective projection that ranges
 		// with a FOV of 45 degrees, for our current aspect ratio, and Z ranges from [0.001, 1000].
-		glm::mat4 projectionMatrix = glm::perspective(45.0f, windowWidth / (float)windowHeight, 0.001f, 100.0f);
+		glm::mat4 projectionMatrix = glm::perspective(45.0f, windowWidth / (float)windowHeight, 0.001f, 1000.0f);
 
 		// set up our look at matrix to position our camera
 		glm::mat4 viewMatrix = glm::lookAt(eyePoint, lookAtPoint, upVector);
 
-		// pass our view and projection matrices
-		renderScene(viewMatrix, projectionMatrix);
+		// pass our view and projection matricesa
+		renderScene(viewMatrix, projectionMatrix, current_time - last_time);
 
 		glFlush();
 
