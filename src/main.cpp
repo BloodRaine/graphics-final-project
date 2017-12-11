@@ -34,6 +34,7 @@
 #include <CSCI441/objects3.hpp>
 #include <CSCI441/ShaderProgram3.hpp>
 
+#include "Billboard.h"
 //******************************************************************************
 //
 // Global Parameters
@@ -70,6 +71,9 @@ GLuint texturedQuadVAO;
 
 GLfloat platformSize = 20.0f;
 
+Billboard *trees = NULL;
+GLuint treeTextureHandle;
+
 //******************************************************************************
 //
 // Helper Functions
@@ -86,6 +90,7 @@ void convertSphericalToCartesian()
 	eyePoint.x = cameraAngles.z * sinf(cameraAngles.x) * sinf(cameraAngles.y);
 	eyePoint.y = cameraAngles.z * -cosf(cameraAngles.y);
 	eyePoint.z = cameraAngles.z * -cosf(cameraAngles.x) * sinf(cameraAngles.y);
+	trees->updateBillboardAngle(eyePoint);
 }
 
 bool registerOpenGLTexture(unsigned char *textureData,
@@ -356,6 +361,8 @@ void setupGLEW()
 ////////////////////////////////////////////////////////////////////////////////
 void setupTextures()
 {
+	
+	treeTextureHandle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/tree.png");
 	platformTextureHandle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/ground.png");
 	
 	// and get handles for our full skybox
@@ -407,14 +414,14 @@ void setupBuffers()
 		float x, y, z;
 		float s, t;
 	};
-
+	
 	//////////////////////////////////////////
 	//
 	// Model
 
 	model = new CSCI441::ModelLoader();
 	model->loadModelFile("models/medstreet/medstreet.obj");
-
+	
 	//////////////////////////////////////////
 	//
 	// PLATFORM
@@ -520,29 +527,10 @@ void setupBuffers()
 		glEnableVertexAttribArray(attrib_vTextureCoord_loc);
 		glVertexAttribPointer(attrib_vTextureCoord_loc, 2, GL_FLOAT, GL_FALSE, sizeof(VertexTextured), (void *)(sizeof(float) * 3));
 	}
-
-	//////////////////////////////////////////
-	//
-	// TEXTURED QUAD
-
-	// LOOKHERE #1
-
-	VertexTextured texturedQuadVerts[4] = {
-		{-1.0f, -1.0f, 0.0f, 0.0f, 0.0f}, // 0 - BL
-		{1.0f, -1.0f, 0.0f, 1.0f, 0.0f},  // 1 - BR
-		{-1.0f, 1.0f, 0.0f, 0.0f, 1.0f},  // 2 - TL
-		{1.0f, 1.0f, 0.0f, 1.0f, 1.0f}	// 3 - TR
-	};
-
-	unsigned short texturedQuadIndices[4] = {0, 1, 2, 3};
-
-	glGenVertexArrays(1, &texturedQuadVAO);
-	glBindVertexArray(texturedQuadVAO);
-	glGenBuffers(2, vbods);
-	glBindBuffer(GL_ARRAY_BUFFER, vbods[0]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(texturedQuadVerts), texturedQuadVerts, GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbods[1]);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(texturedQuadIndices), texturedQuadIndices, GL_STATIC_DRAW);
+	
+	trees = new Billboard(uniform_modelMtx_loc, uniform_viewProjetionMtx_loc, attrib_vPos_loc, attrib_vTextureCoord_loc);
+	trees->setupBillboardBuffer();
+	trees->add(glm::vec3(15, 10, 5), glm::vec2(5, 10));
 }
 
 //******************************************************************************
@@ -560,11 +548,14 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 
 	// Use our texture shader program
 	textureShaderProgram->useProgram();
+	
+	glBindTexture(GL_TEXTURE_2D, treeTextureHandle);
+	trees->drawBillboard(m, vp);
 
 	glUniformMatrix4fv(uniform_modelMtx_loc, 1, GL_FALSE, &m[0][0]);
 	glUniformMatrix4fv(uniform_viewProjetionMtx_loc, 1, GL_FALSE, &vp[0][0]);
 	glUniform1ui(uniform_tex_loc, GL_TEXTURE0);
-
+	
 	glm::vec3 white(1, 1, 1);
 	glUniform3fv(uniform_color_loc, 1, &white[0]);
 
@@ -609,6 +600,8 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	model->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
+				
+	
 }
 
 ///*****************************************************************************
@@ -631,13 +624,14 @@ int main(int argc, char *argv[])
 	setupTextures();				  // load all textures into memory
 
 	convertSphericalToCartesian(); // set up our camera position
-
+	
 	CSCI441::setVertexAttributeLocations(attrib_vPos_loc, -1, attrib_vTextureCoord_loc);
 	CSCI441::drawSolidSphere(1, 16, 16); // strange hack I need to make spheres draw - don't have time to investigate why..it's a bug with my library
 
 	//  This is our draw loop - all rendering is done here.  We use a loop to keep the window open
 	//	until the user decides to close the window and quit the program.  Without a loop, the
 	//	window will display once and then the program exits.
+	
 	while (!glfwWindowShouldClose(window))
 	{ // check if the window was instructed to be closed
 		// Get the size of our window framebuffer.  Ideally this should be the same dimensions as our window, but
