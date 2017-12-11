@@ -74,6 +74,9 @@ GLfloat platformSize = 20.0f;
 Billboard *trees = NULL;
 GLuint treeTextureHandle;
 
+CSCI441::ModelLoader *pyramid = NULL;
+GLuint pyramidTextureHandle;
+
 //******************************************************************************
 //
 // Helper Functions
@@ -365,6 +368,8 @@ void setupTextures()
 	treeTextureHandle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/tree.png");
 	platformTextureHandle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/ground.png");
 	
+	pyramidTextureHandle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/pyramid.jpg");
+	
 	// and get handles for our full skybox
 	printf("[INFO]: registering skybox...\n");
 	fflush(stdout);
@@ -422,6 +427,9 @@ void setupBuffers()
 	model = new CSCI441::ModelLoader();
 	model->loadModelFile("models/medstreet/medstreet.obj");
 	
+	pyramid = new CSCI441::ModelLoader();
+	pyramid->loadModelFile("models/pyramid.obj");
+	
 	//////////////////////////////////////////
 	//
 	// PLATFORM
@@ -429,10 +437,10 @@ void setupBuffers()
 	
 
 	VertexTextured platformVertices[4] = {
-		{-platformSize, 0.0f, -platformSize, 0.0f, 0.0f}, // 0 - BL
-		{platformSize, 0.0f, -platformSize, 1.0f, 0.0f},  // 1 - BR
-		{-platformSize, 0.0f, platformSize, 0.0f, -1.0f}, // 2 - TL
-		{platformSize, 0.0f, platformSize, 1.0f, -1.0f}   // 3 - TR
+		{-platformSize, 0.0f, -platformSize, 0.0f, 1.0f}, // 0 - BL
+		{platformSize, 0.0f, -platformSize, 0.0f, 0.0f},  // 1 - BR
+		{-platformSize, 0.0f, platformSize, 1.0f, 1.0f}, // 2 - TL
+		{platformSize, 0.0f, platformSize, 1.0f, 0.0f}   // 3 - TR
 	};
 
 	unsigned short platformIndices[4] = {0, 1, 2, 3};
@@ -572,6 +580,23 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	glBindVertexArray(platformVAOd);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, (void *)0);
 
+	glBindTexture(GL_TEXTURE_2D, pyramidTextureHandle);
+	glm::mat4 pyMV = glm::translate(glm::mat4(), glm::vec3(-35, 10, 0));
+	pyMV = glm::scale(pyMV, glm::vec3(20, 10, 20));
+	pyMV = glm::rotate(pyMV, (float) M_PI/2.0f, glm::vec3(1, 0, 0));
+	
+	pyMV = viewMatrix * pyMV;
+	glm::mat4 pyNMtx = glm::transpose(glm::inverse(pyMV));
+	modelPhongShaderProgram->useProgram();
+	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &pyMV[0][0]);
+	glUniformMatrix4fv(uniform_phong_v_loc, 1, GL_FALSE, &viewMatrix[0][0]);
+	glUniformMatrix4fv(uniform_phong_p_loc, 1, GL_FALSE, &projectionMatrix[0][0]);
+	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &pyNMtx[0][0]);
+	glUniform1i(uniform_phong_txtr_loc, 0);
+	pyramid->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
+				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
+				GL_TEXTURE0);
+	
 	// translate the model up slightly to prevent depth fighting on the platform
 	m = glm::translate(m, glm::vec3(4, 0.1, -platformSize));
 
@@ -581,8 +606,6 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	// use our textured phong shader program for the model
 	modelPhongShaderProgram->useProgram();
 	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &mv[0][0]);
-	glUniformMatrix4fv(uniform_phong_v_loc, 1, GL_FALSE, &viewMatrix[0][0]);
-	glUniformMatrix4fv(uniform_phong_p_loc, 1, GL_FALSE, &projectionMatrix[0][0]);
 	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &nMtx[0][0]);
 	glUniform1i(uniform_phong_txtr_loc, 0);
 
@@ -600,7 +623,6 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	model->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
-				
 	
 }
 
