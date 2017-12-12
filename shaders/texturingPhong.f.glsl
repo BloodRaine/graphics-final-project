@@ -1,13 +1,13 @@
 #version 330 core
 
 in vec3 normalVec;
-in vec3 lightVec;
-in vec3 halfwayVec;
+in vec3 lightVec[2];
+in vec3 halfwayVec[2];
 in vec2 texCoord;
 
-const vec4 lightDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
-const vec4 lightSpecular = vec4(1.0, 1.0, 1.0, 1.0);
-const vec4 lightAmbient = vec4(1.0, 1.0, 1.0, 1.0);
+uniform vec4 lightDiffuse[2];
+uniform vec4 lightSpecular[2];
+uniform vec4 lightAmbient[2];
 
 uniform vec4 materialDiffuse;
 uniform vec4 materialSpecular;
@@ -18,20 +18,23 @@ uniform sampler2D txtr;
 out vec4 fragColorOut;
 
 void main() {
-    vec3 lightVec2 = normalize(lightVec);
-    vec3 normalVec2 = normalize(normalVec);
-    vec3 halfwayVec2 = normalize(halfwayVec);
+
+	fragColorOut = vec4(0, 0, 0, 0);
+	vec3 normalVec2 = normalize(normalVec);
+	for(int i = 0; i < lightVec.length(); i++){
+		vec3 lightVec2 = normalize(lightVec[i]);
+		vec3 halfwayVec2 = normalize(halfwayVec[i]);
+		float sDotN = max( dot(lightVec2, normalVec2), 0.0 );
+		
+		vec4 diffuse = lightDiffuse[i] * materialDiffuse * sDotN;
+		vec4 specular = vec4(0.0);
+		if( sDotN > 0.0 )
+			specular = lightSpecular[i] * materialSpecular * pow( max( 0.0, dot( halfwayVec2, normalVec2 ) ), materialShininess );
+		vec4 ambient = lightAmbient[i] * materialAmbient;
+		fragColorOut += diffuse + specular + ambient;
+	}
     
-    float sDotN = max( dot(lightVec2, normalVec2), 0.0 );
-    vec4 diffuse = lightDiffuse * materialDiffuse * sDotN;
     
-    vec4 specular = vec4(0.0);
-    if( sDotN > 0.0 )
-        specular = lightSpecular * materialSpecular * pow( max( 0.0, dot( halfwayVec2, normalVec2 ) ), materialShininess );
-    
-    vec4 ambient = lightAmbient * materialAmbient;
-    
-    fragColorOut = diffuse + specular + ambient;
     
     vec4 texel = texture( txtr, texCoord );
     fragColorOut *= texel;

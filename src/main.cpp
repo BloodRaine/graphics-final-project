@@ -62,6 +62,7 @@ GLint attrib_vPos_loc, attrib_vTextureCoord_loc;
 CSCI441::ShaderProgram *modelPhongShaderProgram = NULL;
 GLint uniform_phong_mv_loc, uniform_phong_v_loc, uniform_phong_p_loc, uniform_phong_norm_loc;
 GLint uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_ma_loc, uniform_phong_s_loc;
+GLint uniform_phong_lp_loc, uniform_phong_la_loc, uniform_phong_ld_loc, uniform_phong_ls_loc;
 GLint uniform_phong_txtr_loc;
 GLint attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc;
 
@@ -76,7 +77,15 @@ GLuint treeTextureHandle;
 
 CSCI441::ModelLoader *pyramid = NULL;
 GLuint pyramidTextureHandle;
-
+GLfloat light1Angle = 0.0f;
+glm::vec3 lightPos[2] = {glm::vec3(10.0f, 10.0f, 10.0f),
+						 glm::vec3(20.0f, 0.0f, 0.0f)};
+glm::vec4 lightA[2] = {glm::vec4(0.2f, 0.2f, 0.2f, 1.0f), 
+					   glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)};
+glm::vec4 lightD[2] = {glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 
+					   glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)};
+glm::vec4 lightS[2] = {glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 
+					   glm::vec4(0.2f, 0.2f, 0.2f, 1.0f)};
 //******************************************************************************
 //
 // Helper Functions
@@ -402,6 +411,10 @@ void setupShaders()
 	uniform_phong_ma_loc = modelPhongShaderProgram->getUniformLocation("materialAmbient");
 	uniform_phong_s_loc = modelPhongShaderProgram->getUniformLocation("materialShininess");
 	uniform_phong_txtr_loc = modelPhongShaderProgram->getUniformLocation("txtr");
+	uniform_phong_lp_loc = modelPhongShaderProgram->getUniformLocation("lightPos");
+	uniform_phong_la_loc = modelPhongShaderProgram->getUniformLocation("lightAmbient");
+	uniform_phong_ld_loc = modelPhongShaderProgram->getUniformLocation("lightDiffuse");
+	uniform_phong_ls_loc = modelPhongShaderProgram->getUniformLocation("lightSpecular");
 	attrib_phong_vpos_loc = modelPhongShaderProgram->getAttributeLocation("vPos");
 	attrib_phong_vnorm_loc = modelPhongShaderProgram->getAttributeLocation("vNormal");
 	attrib_phong_vtex_loc = modelPhongShaderProgram->getAttributeLocation("vTexCoord");
@@ -588,6 +601,11 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	pyMV = viewMatrix * pyMV;
 	glm::mat4 pyNMtx = glm::transpose(glm::inverse(pyMV));
 	modelPhongShaderProgram->useProgram();
+	glUniform3fv(uniform_phong_lp_loc, 2, (const GLfloat*) &lightPos[0]);
+	glUniform4fv(uniform_phong_la_loc, 2, (const GLfloat*) &lightA[0]);
+	glUniform4fv(uniform_phong_ld_loc, 2, (const GLfloat*) &lightD[0]);
+	glUniform4fv(uniform_phong_ls_loc, 2, (const GLfloat*) &lightS[0]);
+	
 	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &pyMV[0][0]);
 	glUniformMatrix4fv(uniform_phong_v_loc, 1, GL_FALSE, &viewMatrix[0][0]);
 	glUniformMatrix4fv(uniform_phong_p_loc, 1, GL_FALSE, &projectionMatrix[0][0]);
@@ -623,6 +641,16 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	model->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
+	
+}
+
+void modifyLight(){
+	if(light1Angle > 6.24){
+		light1Angle -= 6.24;
+		lightD[1] = glm::vec4(rand()/(float)RAND_MAX, rand()/(float)RAND_MAX, rand()/(float)RAND_MAX, 1.0f);
+	} 
+	light1Angle += 0.02;
+	lightPos[1] = glm::vec3(30*cos(light1Angle), 10, 30*sin(light1Angle));
 	
 }
 
@@ -674,6 +702,8 @@ int main(int argc, char *argv[])
 		// set up our look at matrix to position our camera
 		glm::mat4 viewMatrix = glm::lookAt(eyePoint, lookAtPoint, upVector);
 
+		modifyLight();
+		
 		// pass our view and projection matrices
 		renderScene(viewMatrix, projectionMatrix);
 
