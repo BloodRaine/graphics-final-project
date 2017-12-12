@@ -8,9 +8,10 @@
 class Billboard{
 	
 private:
-	struct VertexText { GLfloat x, y, z, s, t; };
+	struct VertexNormalTexture { GLfloat x, y, z, nx, ny, nz, s, t; };
 	GLuint billboardVAO;
-	GLint mMtxLoc, vpMtxLoc, vPosLoc, vTexLoc;
+	GLint mvMtx_loc, nMtx_loc;
+	GLint vPos_loc, vTex_loc, vNorm_loc;
 	
 	std::vector<GLfloat> rotateAngle;
 	std::vector<glm::vec3> axisRot;
@@ -20,7 +21,8 @@ private:
 
 public:
 	Billboard();
-	Billboard(GLint, GLint, GLint, GLint);
+    void setUniformLocation(GLint, GLint);
+	void setAttributeLocation(GLint, GLint, GLint);
 	void setupBillboardBuffer();
 	void updateBillboardAngle(glm::vec3);
 	void drawBillboard(glm::mat4, glm::mat4);

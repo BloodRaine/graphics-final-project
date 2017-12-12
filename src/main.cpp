@@ -67,6 +67,7 @@ GLint uniform_phong_txtr_loc;
 GLint attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc;
 
 CSCI441::ModelLoader *model = NULL;
+CSCI441::ModelLoader *platform = NULL;
 
 GLuint texturedQuadVAO;
 
@@ -444,45 +445,15 @@ void setupBuffers()
 	pyramid = new CSCI441::ModelLoader();
 	pyramid->loadModelFile("models/pyramid.obj");
 	
-	//////////////////////////////////////////
-	//
-	// PLATFORM
-
 	
+	platform = new CSCI441::ModelLoader();
+	platform->loadModelFile("models/platform.obj");
 
-	VertexTextured platformVertices[4] = {
-		{-platformSize, 0.0f, -platformSize, 0.0f, 1.0f}, // 0 - BL
-		{platformSize, 0.0f, -platformSize, 0.0f, 0.0f},  // 1 - BR
-		{-platformSize, 0.0f, platformSize, 1.0f, 1.0f}, // 2 - TL
-		{platformSize, 0.0f, platformSize, 1.0f, 0.0f}   // 3 - TR
-	};
-
-	unsigned short platformIndices[4] = {0, 1, 2, 3};
-
-	glGenVertexArrays(1, &platformVAOd);
-	glBindVertexArray(platformVAOd);
-
-	GLuint vbods[2];
-	glGenBuffers(2, vbods);
-
-	glBindBuffer(GL_ARRAY_BUFFER, vbods[0]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(platformVertices), platformVertices, GL_STATIC_DRAW);
-
-	glEnableVertexAttribArray(attrib_vPos_loc);
-	glVertexAttribPointer(attrib_vPos_loc, 3, GL_FLOAT, GL_FALSE, sizeof(VertexTextured), (void *)0);
-
-	glEnableVertexAttribArray(attrib_vTextureCoord_loc);
-	glVertexAttribPointer(attrib_vTextureCoord_loc, 2, GL_FLOAT, GL_FALSE, sizeof(VertexTextured), (void *)(sizeof(float) * 3));
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbods[1]);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(platformIndices), platformIndices, GL_STATIC_DRAW);
+	GLuint vbod;
 
 	//////////////////////////////////////////
 	//
 	// SKYBOX
-
-	unsigned short skyboxIndices[4] = {
-		0, 1, 2, 3};
 
 	GLfloat skyboxDim = 40.0f;
 	VertexTextured skyboxVertices[6][4] = {
@@ -539,18 +510,18 @@ void setupBuffers()
 	for (int i = 0; i < 6; i++)
 	{
 		glBindVertexArray(skyboxVAOds[i]);
-		glGenBuffers(2, vbods);
-		glBindBuffer(GL_ARRAY_BUFFER, vbods[0]);
+		glGenBuffers(1, &vbod);
+		glBindBuffer(GL_ARRAY_BUFFER, vbod);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices[i]), skyboxVertices[i], GL_STATIC_DRAW);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbods[1]);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(skyboxIndices), skyboxIndices, GL_STATIC_DRAW);
 		glEnableVertexAttribArray(attrib_vPos_loc);
 		glVertexAttribPointer(attrib_vPos_loc, 3, GL_FLOAT, GL_FALSE, sizeof(VertexTextured), (void *)0);
 		glEnableVertexAttribArray(attrib_vTextureCoord_loc);
 		glVertexAttribPointer(attrib_vTextureCoord_loc, 2, GL_FLOAT, GL_FALSE, sizeof(VertexTextured), (void *)(sizeof(float) * 3));
 	}
 	
-	trees = new Billboard(uniform_modelMtx_loc, uniform_viewProjetionMtx_loc, attrib_vPos_loc, attrib_vTextureCoord_loc);
+	trees = new Billboard();
+	trees->setUniformLocation(uniform_phong_mv_loc, uniform_phong_norm_loc);
+	trees->setAttributeLocation(attrib_phong_vpos_loc, attrib_phong_vtex_loc, attrib_phong_vnorm_loc);
 	trees->setupBillboardBuffer();
 	trees->add(glm::vec3(15, 10, 5), glm::vec2(5, 10));
 }
@@ -570,9 +541,6 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 
 	// Use our texture shader program
 	textureShaderProgram->useProgram();
-	
-	glBindTexture(GL_TEXTURE_2D, treeTextureHandle);
-	trees->drawBillboard(m, vp);
 
 	glUniformMatrix4fv(uniform_modelMtx_loc, 1, GL_FALSE, &m[0][0]);
 	glUniformMatrix4fv(uniform_viewProjetionMtx_loc, 1, GL_FALSE, &vp[0][0]);
@@ -586,14 +554,34 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	{
 		glBindTexture(GL_TEXTURE_2D, skyboxHandles[i]);
 		glBindVertexArray(skyboxVAOds[i]);
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, (void *)0);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	}
+	
+	modelPhongShaderProgram->useProgram();
+	glUniform3fv(uniform_phong_lp_loc, 2, (const GLfloat*) &lightPos[0]);
+	glUniform4fv(uniform_phong_la_loc, 2, (const GLfloat*) &lightA[0]);
+	glUniform4fv(uniform_phong_ld_loc, 2, (const GLfloat*) &lightD[0]);
+	glUniform4fv(uniform_phong_ls_loc, 2, (const GLfloat*) &lightS[0]);
+	glUniformMatrix4fv(uniform_phong_v_loc, 1, GL_FALSE, &viewMatrix[0][0]);
+	glUniformMatrix4fv(uniform_phong_p_loc, 1, GL_FALSE, &projectionMatrix[0][0]);
+	glUniform1i(uniform_phong_txtr_loc, GL_TEXTURE0);
+	
+	glm::mat4 mv = viewMatrix * m;
+	glm::mat4 nMtx = glm::transpose(glm::inverse(mv));
+	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &mv[0][0]);
+	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &nMtx[0][0]);
+	
 
 	// draw the platform
 	glBindTexture(GL_TEXTURE_2D, platformTextureHandle);
-	glBindVertexArray(platformVAOd);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, (void *)0);
-
+	platform->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
+				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
+				GL_TEXTURE0);
+	
+	glBindTexture(GL_TEXTURE_2D, treeTextureHandle);
+	trees->drawBillboard(m, viewMatrix);
+	
+	// draw the pyramid
 	glBindTexture(GL_TEXTURE_2D, pyramidTextureHandle);
 	glm::mat4 pyMV = glm::translate(glm::mat4(), glm::vec3(-35, 10, 0));
 	pyMV = glm::scale(pyMV, glm::vec3(20, 10, 20));
@@ -601,15 +589,9 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	
 	pyMV = viewMatrix * pyMV;
 	glm::mat4 pyNMtx = glm::transpose(glm::inverse(pyMV));
-	modelPhongShaderProgram->useProgram();
-	glUniform3fv(uniform_phong_lp_loc, 2, (const GLfloat*) &lightPos[0]);
-	glUniform4fv(uniform_phong_la_loc, 2, (const GLfloat*) &lightA[0]);
-	glUniform4fv(uniform_phong_ld_loc, 2, (const GLfloat*) &lightD[0]);
-	glUniform4fv(uniform_phong_ls_loc, 2, (const GLfloat*) &lightS[0]);
+	
 	
 	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &pyMV[0][0]);
-	glUniformMatrix4fv(uniform_phong_v_loc, 1, GL_FALSE, &viewMatrix[0][0]);
-	glUniformMatrix4fv(uniform_phong_p_loc, 1, GL_FALSE, &projectionMatrix[0][0]);
 	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &pyNMtx[0][0]);
 	glUniform1i(uniform_phong_txtr_loc, 0);
 	pyramid->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
@@ -619,14 +601,13 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	// translate the model up slightly to prevent depth fighting on the platform
 	m = glm::translate(m, glm::vec3(4, 0.1, -platformSize));
 
-	glm::mat4 mv = viewMatrix * m;
-	glm::mat4 nMtx = glm::transpose(glm::inverse(mv));
+	mv = viewMatrix * m;
+	nMtx = glm::transpose(glm::inverse(mv));
 
 	// use our textured phong shader program for the model
 	modelPhongShaderProgram->useProgram();
 	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &mv[0][0]);
 	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &nMtx[0][0]);
-	glUniform1i(uniform_phong_txtr_loc, 0);
 
 	// draw the buildings
 	model->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
@@ -642,7 +623,6 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 	model->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
-	
 }
 
 void modifyLight(){

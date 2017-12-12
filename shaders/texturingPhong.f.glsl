@@ -20,6 +20,11 @@ out vec4 fragColorOut;
 void main() {
 
 	fragColorOut = vec4(0, 0, 0, 0);
+	vec4 texel = texture( txtr, texCoord );
+	if(texel.a < 0.4){
+		discard;
+		return;
+	}
 	vec3 normalVec2 = normalize(normalVec);
 	for(int i = 0; i < lightVec.length(); i++){
 		vec3 lightVec2 = normalize(lightVec[i]);
@@ -33,9 +38,5 @@ void main() {
 		vec4 ambient = lightAmbient[i] * materialAmbient;
 		fragColorOut += diffuse + specular + ambient;
 	}
-    
-    
-    
-    vec4 texel = texture( txtr, texCoord );
     fragColorOut *= texel;
 }

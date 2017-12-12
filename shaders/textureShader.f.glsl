@@ -9,6 +9,5 @@ uniform vec3 color;
 
 void main() {
   vec4 texel = texture(tex, texCoord);
-  if(texel.a < 0.5) discard;
   fragColorOut = texel * vec4(color, 1);
 }
