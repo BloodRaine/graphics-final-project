@@ -82,10 +82,11 @@ glm::vec3 lightPos[2] = {glm::vec3(10.0f, 10.0f, 10.0f),
 						 glm::vec3(20.0f, 0.0f, 0.0f)};
 glm::vec4 lightA[2] = {glm::vec4(0.2f, 0.2f, 0.2f, 1.0f), 
 					   glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)};
-glm::vec4 lightD[2] = {glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 
-					   glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)};
-glm::vec4 lightS[2] = {glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 
-					   glm::vec4(0.2f, 0.2f, 0.2f, 1.0f)};
+glm::vec4 lightD[2] = {glm::vec4(0.2f, 0.2f, 0.2f, 1.0f), 
+					   glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)};
+glm::vec4 lightS[2] = {glm::vec4(0.2f, 0.2f, 0.2f, 1.0f), 
+					   glm::vec4(0.5f, 0.5f, 0.5f, 1.0f)};
+glm::vec4 lightDN, lightDO(1.0f, 1.0f, 1.0f, 1.0f);
 //******************************************************************************
 //
 // Helper Functions
@@ -647,10 +648,12 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
 void modifyLight(){
 	if(light1Angle > 6.24){
 		light1Angle -= 6.24;
-		lightD[1] = glm::vec4(rand()/(float)RAND_MAX, rand()/(float)RAND_MAX, rand()/(float)RAND_MAX, 1.0f);
+		lightDO = lightDN;
+		lightDN = glm::vec4(rand()/(float)RAND_MAX, rand()/(float)RAND_MAX, rand()/(float)RAND_MAX, 1.0f);
 	} 
 	light1Angle += 0.02;
-	lightPos[1] = glm::vec3(30*cos(light1Angle), 10, 30*sin(light1Angle));
+	lightD[1] = glm::mix(lightDO, lightDN, (light1Angle/6.24));
+	lightPos[1] = glm::vec3(20*cos(light1Angle), 10, 20*sin(light1Angle));
 	
 }
 
