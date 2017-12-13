@@ -1,4 +1,7 @@
 #include "FountainParticleSystem.h"
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
 
 FountainParticleSystem::FountainParticleSystem(Type type, glm::vec3 pos, float maxVel, float minVel, float angle, float age, float g, float rate, GLint handle)
 {

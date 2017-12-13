@@ -14,6 +14,9 @@
  */
 
 //******************************************************************************
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h> // include GLFW framework header
