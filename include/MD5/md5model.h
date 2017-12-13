@@ -31,7 +31,6 @@
 #define __MD5MODEL_H__
 
 #include <GL/glew.h>
-// #include <CSCI441/ShaderProgram3.hpp>
 
 /* Vectors */
 typedef float vec2_t[2];

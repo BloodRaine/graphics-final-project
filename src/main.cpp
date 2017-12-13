@@ -25,7 +25,7 @@
 #include <SOIL/SOIL.h> // for image loading
 
 #include <stdio.h>  // for printf functionality
-// #include <stdlib.h> // for exit functionality
+#include <stdlib.h> // for exit functionality
 
 #include <vector> // for vector
 
@@ -33,9 +33,9 @@
 #include <CSCI441/modelLoader3.hpp>
 #include <CSCI441/objects3.hpp>
 #include <CSCI441/ShaderProgram3.hpp>
-#include "FountainParticleSystem.h"
 
-#include "../include/MD5/md5model.h" // for our MD5 Model 
+#include "../include/MD5/md5model.h" // for our MD5 Model
+#include "FountainParticleSystem.h"
 
 //******************************************************************************
 //
@@ -81,6 +81,17 @@ GLfloat platformSize = 20.0f;
 CSCI441::ModelLoader *fountain = NULL;
 
 vector<ParticleSystem*> systems;
+vector<CSCI441::ShaderProgram *> particleShaderPrograms;
+vector<GLuint> particleTextureHandles;
+vector<GLint> modelview_uniform_locations;
+vector<GLint> projection_uniform_locations;
+vector<GLint> vpos_attrib_locations;
+GLuint pointsVAO;
+GLuint pointsVBO;
+
+int NUM_POINTS = 99999000;
+
+float masterTime = 0;
 
 // Hellknight vars
 md5_model_t md5model;
@@ -271,10 +282,10 @@ static void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
 	double totChgSq = yOffset;
 	cameraAngles.z += totChgSq * 0.2f;
 
-	if (cameraAngles.z <= 2.0f)
-		cameraAngles.z = 2.0f;
-	if (cameraAngles.z >= 35.0f)
-		cameraAngles.z = 35.0f;
+	// if (cameraAngles.z <= 2.0f)
+	// 	cameraAngles.z = 2.0f;
+	// if (cameraAngles.z >= 35.0f)
+	// 	cameraAngles.z = 35.0f;
 
 	convertSphericalToCartesian();
 }
@@ -289,7 +300,16 @@ void setupSkybox() {
 
 void setupParticleSystems() {
 	// main fountain particle system
-	// systems.push_back(FountainParticleSystem());
+	GLint handle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/snowflake.png");
+	FountainParticleSystem *fountainSystem = new FountainParticleSystem(FOUNTAIN, glm::vec3(0, 0, 0), 0.2f, 0.1f, 10, 100, -9.81, 1000, handle);
+	systems.push_back(fountainSystem);
+} 
+
+void updateParticleSystems() {
+	// printf("%f\n", masterTime);
+	for (ParticleSystem* s : systems) {
+		s->updateParticles(masterTime);
+	}
 }
 
 // loadMD5Model() //////////////////////////////////////////////////////////////
@@ -480,6 +500,43 @@ void setupShaders()
 	pt_projection_location = hellknightShaderProgram->getUniformLocation("projection");
 	pt_texture_location = hellknightShaderProgram->getUniformLocation("tex");
 
+	// TODO add particle system shader programs
+	CSCI441::ShaderProgram* program = NULL;
+	GLuint modelview_uniform_location = -1;
+	GLuint projection_uniform_location = -1;
+	GLint vpos_attrib_location = -1;
+
+	for (ParticleSystem* s : systems) {
+		switch(s->type) { 
+			case FOUNTAIN:
+				program = new CSCI441::ShaderProgram("shaders/billboardQuadShader.v.glsl", 
+													"shaders/billboardQuadShader.g.glsl", 
+													"shaders/billboardQuadShader.f.glsl");
+
+				modelview_uniform_location = program->getUniformLocation("mvMatrix");
+				projection_uniform_location = program->getUniformLocation("projMatrix");
+				vpos_attrib_location = program->getAttributeLocation("vPos");
+
+				particleShaderPrograms.push_back(program);
+				modelview_uniform_locations.push_back(modelview_uniform_location);
+				projection_uniform_locations.push_back(projection_uniform_location);
+				vpos_attrib_locations.push_back(vpos_attrib_location);
+				break;
+			case FIREWORK:
+				printf("COMING SOON......");
+				break;
+		}
+		
+	}
+
+	glGenVertexArrays(1, &pointsVAO);
+	glBindVertexArray(pointsVAO);
+
+	glGenBuffers(1, &pointsVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, pointsVBO);
+	glBufferData(GL_ARRAY_BUFFER, NUM_POINTS * sizeof(glm::vec3), NULL, GL_DYNAMIC_DRAW);
+	glEnableVertexAttribArray(vpos_attrib_location);
+	glVertexAttribPointer(vpos_attrib_location, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 }
 
 // setupBuffers() //////////////////////////////////////////////////////////////
@@ -626,6 +683,62 @@ void setupBuffers()
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(texturedQuadIndices), texturedQuadIndices, GL_STATIC_DRAW);
 }
 
+void renderParticleSystems(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
+
+	for (int i = 0; i < systems.size(); i++) {
+		particleShaderPrograms[i]->useProgram(); 
+
+		// precompute our MVP CPU side so it only needs to be computed once
+		glm::mat4 modelMatrix = glm::mat4();
+
+		glm::mat4 mvMtx = viewMatrix * modelMatrix;
+
+		// send MVP to GPU
+		glUniformMatrix4fv(modelview_uniform_locations[i], 1, GL_FALSE, &mvMtx[0][0]);
+		glUniformMatrix4fv(projection_uniform_locations[i], 1, GL_FALSE, &projMatrix[0][0]);
+
+		// sort!
+		glm::vec3 view = glm::normalize(lookAtPoint - eyePoint);
+
+		int NUM_POINT = systems[i]->particles.size();
+
+		int orderedIndices[NUM_POINT];
+		double distances[NUM_POINT];
+
+		int count = 0;
+
+		for (Particle *p : systems[i]->particles)
+		{
+		    glm::vec4 pos = modelMatrix * glm::vec4(p->position.x, p->position.y, p->position.z, 1);
+		    glm::vec3 ep = glm::vec3(pos) - eyePoint;
+		    double vp = glm::dot(view, ep);
+
+		    orderedIndices[count] = count;
+		    distances[count] = vp;
+		    count++;
+		}
+
+		for (int i = 0; i < NUM_POINT; i++)
+		{
+		    for (int j = 0; j < NUM_POINT; j++)
+		    {
+		        if (distances[j] < distances[i])
+		        {
+		            double dist = distances[j];
+		            distances[j] = distances[i];
+		            distances[i] = dist;
+
+		            int index = orderedIndices[j];
+		            orderedIndices[j] = orderedIndices[i];
+		            orderedIndices[i] = index;
+		        }
+		    }
+		}
+		
+		systems[i]->draw(pointsVAO, pointsVBO, systems[i]->handle);
+	}
+}
+
 //******************************************************************************
 //
 // Rendering / Drawing Functions - this is where the magic happens!
@@ -637,6 +750,8 @@ void setupBuffers()
 ////////////////////////////////////////////////////////////////////////////////
 void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaTime)
 {
+
+	updateParticleSystems();
 	glm::mat4 m, vp = projectionMatrix * viewMatrix;
 
 	hellknightShaderProgram->useProgram();
@@ -721,6 +836,10 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	model->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
+
+	renderParticleSystems(viewMatrix, projectionMatrix);
+
+	masterTime += 1.0f/20.0f;
 }
 
 ///*****************************************************************************
@@ -738,10 +857,16 @@ int main(int argc, char *argv[])
 	GLFWwindow *window = setupGLFW(); // initialize all of the GLFW specific information releated to OpenGL and our window
 	setupOpenGL();					  // initialize all of the OpenGL specific information
 	setupGLEW();					  // initialize all of the GLEW specific information
+	setupParticleSystems();
 	setupShaders();					  // load our shaders into memory
 	setupBuffers();					  // load all our VAOs and VBOs into memory
 	setupTextures();				  // load all textures into memory
 	loadMD5Model();					  // load the MD5 Model & animation if provided
+
+	for (int i = 0; i < systems.size(); i++) {
+		glValidateProgram(particleShaderPrograms[i]->getShaderProgramHandle());
+		CSCI441_INTERNAL::ShaderUtils::printLog(particleShaderPrograms[i]->getShaderProgramHandle());
+	}
 
 	convertSphericalToCartesian(); // set up our camera position
 

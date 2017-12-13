@@ -1,37 +1,42 @@
 #include "FountainParticleSystem.h"
 
-// FountainParticleSystem::FountainParticleSystem(glm::vec3 loc, float maxVel, float minVel, float g, float rate) {
-//     ParticleSystem(loc, maxVel, minVel, g, rate);
-//     // this->maxAge = age;
-// }
+FountainParticleSystem::FountainParticleSystem(Type type, glm::vec3 pos, float maxVel, float minVel, float angle, float age, float g, float rate, GLint handle)
+{
+    this->type = type;
+    this->spawnPoint = pos;
+    this->minVelocity = minVel;
+    this->maxVelocity = maxVel;
+    this->maxAngleFromY = angle;
+    this->gravity = g;
+    this->maxAge = age;
+    this->spawnRate = rate;
+    this->handle = handle;
+    this->mass = 1000;
+}
 
 void FountainParticleSystem::updateParticles(int t) {
-    for (int i = 0; i < spawnRate / 90; i++)
-    {
+    for (int i = 0; i < spawnRate / 90; i++) {
         generateParticle(t);
     }
     int c = 0;
 
     for (Particle *particle : this->particles)
     {
-        if (particle->maxAge > 0.0 || particle->position.y > -3)
-        {
+        if (particle->position.y < -0.1) {
+            this->particles.erase(this->particles.begin() + c);
+        } else if (particle->maxAge > 0.0) {
             glm::vec3 a = glm::vec3(0, gravity, 0) / particle->mass;
-            particle->velocity += (a * (t - particle->startTime) / 60.0f);
+            particle->velocity += (a * (t - particle->startTime)/2.0f);
             // applyForce(glm::vec3(0, gravity, 0), (t - particle->startTime)/60.0f);
             particle->updatePosition();
-        }
-        else
-        {
+        } else {
             this->particles.erase(this->particles.begin() + c);
         }
         c++;
     }
 }
 
-void FountainParticleSystem::generateParticle(int t)
-{
-
+void FountainParticleSystem::generateParticle(int t) {
     float vel = abs(randNumber((maxVelocity - minVelocity) * 10)) / 10.0f + minVelocity;
 
     float xComp = vel * tan(randNumber(maxAngleFromY) * M_PI / 180.0f);

@@ -1,5 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
+#include <stdio.h> // for printf functionality
 
 class Particle {
     public:
@@ -21,6 +22,8 @@ class Particle {
         }
 
         void updatePosition() {
-            
+            // printf("updating");
+            this->position += velocity;
+            this->maxAge -= 1;
         }
 };

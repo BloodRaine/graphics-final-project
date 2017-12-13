@@ -4,12 +4,12 @@
 
 class FountainParticleSystem : public ParticleSystem {
     public:
-      FountainParticleSystem(glm::vec3 loc, float maxVel, float minVel, float g, float rate);
-      void generateParticle(int t);
-      void updateParticles(int t);
+        FountainParticleSystem(Type type, glm::vec3 pos, float maxVel, float minVel, float angle, float age, float g, float rate, GLint handle);
+        void generateParticle(int t);
+        void updateParticles(int t);
 
-      float mass;
-      float minAge;
-      float maxAge;
-      float maxAngleFromY;
+        float mass;
+        float minAge;
+        float maxAge;
+        float maxAngleFromY;
 };
