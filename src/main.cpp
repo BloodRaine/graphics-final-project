@@ -37,6 +37,7 @@
 #include "../include/MD5/md5model.h" // for our MD5 Model
 #include "FountainParticleSystem.h"
 
+#include "Billboard.h"
 //******************************************************************************
 //
 // Global Parameters
@@ -70,9 +71,13 @@ GLint attrib_vPos_loc, attrib_vTextureCoord_loc;
 CSCI441::ShaderProgram *modelPhongShaderProgram = NULL;
 GLint uniform_phong_mv_loc, uniform_phong_v_loc, uniform_phong_p_loc, uniform_phong_norm_loc;
 GLint uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_ma_loc, uniform_phong_s_loc;
+GLint uniform_phong_lp_loc, uniform_phong_la_loc, uniform_phong_ld_loc, uniform_phong_ls_loc;
+GLint uniform_phong_txtr_loc;
+GLint attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc;
 GLint uniform_phong_txtr_loc, attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc;
 
 CSCI441::ModelLoader *model = NULL;
+CSCI441::ModelLoader *platform = NULL;
 
 GLuint texturedQuadVAO;
 
@@ -111,6 +116,21 @@ GLuint vbodsHellknight[2];
 
 GLint pt_model_location, pt_view_location, pt_projection_location, pt_texture_location;
 
+Billboard *trees = NULL;
+GLuint treeTextureHandle;
+
+CSCI441::ModelLoader *pyramid = NULL;
+GLuint pyramidTextureHandle;
+GLfloat light1Angle = 0.0f;
+glm::vec3 lightPos[2] = {glm::vec3(10.0f, 10.0f, 10.0f),
+						 glm::vec3(20.0f, 0.0f, 0.0f)};
+glm::vec4 lightA[2] = {glm::vec4(0.2f, 0.2f, 0.2f, 1.0f), 
+					   glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)};
+glm::vec4 lightD[2] = {glm::vec4(0.2f, 0.2f, 0.2f, 1.0f), 
+					   glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)};
+glm::vec4 lightS[2] = {glm::vec4(0.2f, 0.2f, 0.2f, 1.0f), 
+					   glm::vec4(0.5f, 0.5f, 0.5f, 1.0f)};
+glm::vec4 lightDN, lightDO(1.0f, 1.0f, 1.0f, 1.0f);
 //******************************************************************************
 //
 // Helper Functions
@@ -127,6 +147,7 @@ void convertSphericalToCartesian()
 	eyePoint.x = cameraAngles.z * sinf(cameraAngles.x) * sinf(cameraAngles.y);
 	eyePoint.y = cameraAngles.z * -cosf(cameraAngles.y);
 	eyePoint.z = cameraAngles.z * -cosf(cameraAngles.x) * sinf(cameraAngles.y);
+	trees->updateBillboardAngle(eyePoint);
 }
 
 bool registerOpenGLTexture(unsigned char *textureData,
@@ -456,7 +477,11 @@ void setupGLEW()
 ////////////////////////////////////////////////////////////////////////////////
 void setupTextures()
 {
+	
+	treeTextureHandle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/tree.png");
 	platformTextureHandle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/ground.png");
+	
+	pyramidTextureHandle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/pyramid.jpg");
 	
 	// and get handles for our full skybox
 	printf("[INFO]: registering skybox...\n");
@@ -490,6 +515,10 @@ void setupShaders()
 	uniform_phong_ma_loc = modelPhongShaderProgram->getUniformLocation("materialAmbient");
 	uniform_phong_s_loc = modelPhongShaderProgram->getUniformLocation("materialShininess");
 	uniform_phong_txtr_loc = modelPhongShaderProgram->getUniformLocation("txtr");
+	uniform_phong_lp_loc = modelPhongShaderProgram->getUniformLocation("lightPos");
+	uniform_phong_la_loc = modelPhongShaderProgram->getUniformLocation("lightAmbient");
+	uniform_phong_ld_loc = modelPhongShaderProgram->getUniformLocation("lightDiffuse");
+	uniform_phong_ls_loc = modelPhongShaderProgram->getUniformLocation("lightSpecular");
 	attrib_phong_vpos_loc = modelPhongShaderProgram->getAttributeLocation("vPos");
 	attrib_phong_vnorm_loc = modelPhongShaderProgram->getAttributeLocation("vNormal");
 	attrib_phong_vtex_loc = modelPhongShaderProgram->getAttributeLocation("vTexCoord");
@@ -555,43 +584,22 @@ void setupBuffers()
 
 	model = new CSCI441::ModelLoader();
 	model->loadModelFile("models/medstreet/medstreet.obj");
+	
+	pyramid = new CSCI441::ModelLoader();
+	pyramid->loadModelFile("models/pyramid.obj");
+	
+	
+	platform = new CSCI441::ModelLoader();
+	platform->loadModelFile("models/platform.obj");
 
-	//////////////////////////////////////////
-	//
-	// PLATFORM
-
-	VertexTextured platformVertices[4] = {
-		{-platformSize, 0.0f, -platformSize, 0.0f, 0.0f}, // 0 - BL
-		{platformSize, 0.0f, -platformSize, 1.0f, 0.0f},  // 1 - BR
-		{-platformSize, 0.0f, platformSize, 0.0f, -1.0f}, // 2 - TL
-		{platformSize, 0.0f, platformSize, 1.0f, -1.0f}   // 3 - TR
-	};
-
-	unsigned short platformIndices[4] = {0, 1, 2, 3};
-
-	glGenVertexArrays(1, &platformVAOd);
-	glBindVertexArray(platformVAOd);
-
-	GLuint vbods[2];
-	glGenBuffers(2, vbods);
-
-	glBindBuffer(GL_ARRAY_BUFFER, vbods[0]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(platformVertices), platformVertices, GL_STATIC_DRAW);
-
-	glEnableVertexAttribArray(attrib_vPos_loc);
-	glVertexAttribPointer(attrib_vPos_loc, 3, GL_FLOAT, GL_FALSE, sizeof(VertexTextured), (void *)0);
-
-	glEnableVertexAttribArray(attrib_vTextureCoord_loc);
-	glVertexAttribPointer(attrib_vTextureCoord_loc, 2, GL_FLOAT, GL_FALSE, sizeof(VertexTextured), (void *)(sizeof(float) * 3));
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbods[1]);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(platformIndices), platformIndices, GL_STATIC_DRAW);
+	GLuint vbod;
 
 	//////////////////////////////////////////
 	//
 	// SKYBOX
 
-	unsigned short skyboxIndices[4] = {0, 1, 2, 3};
+	unsigned short skyboxIndices[4] = {
+		0, 1, 2, 3};
 
 	GLfloat skyboxDim = 40.0f;
 	VertexTextured skyboxVertices[6][4] = {
@@ -648,39 +656,20 @@ void setupBuffers()
 	for (int i = 0; i < 6; i++)
 	{
 		glBindVertexArray(skyboxVAOds[i]);
-		glGenBuffers(2, vbods);
-		glBindBuffer(GL_ARRAY_BUFFER, vbods[0]);
+		glGenBuffers(1, &vbod);
+		glBindBuffer(GL_ARRAY_BUFFER, vbod);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices[i]), skyboxVertices[i], GL_STATIC_DRAW);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbods[1]);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(skyboxIndices), skyboxIndices, GL_STATIC_DRAW);
 		glEnableVertexAttribArray(attrib_vPos_loc);
 		glVertexAttribPointer(attrib_vPos_loc, 3, GL_FLOAT, GL_FALSE, sizeof(VertexTextured), (void *)0);
 		glEnableVertexAttribArray(attrib_vTextureCoord_loc);
 		glVertexAttribPointer(attrib_vTextureCoord_loc, 2, GL_FLOAT, GL_FALSE, sizeof(VertexTextured), (void *)(sizeof(float) * 3));
 	}
-
-	//////////////////////////////////////////
-	//
-	// TEXTURED QUAD
-
-	// LOOKHERE #1
-
-	VertexTextured texturedQuadVerts[4] = {
-		{-1.0f, -1.0f, 0.0f, 0.0f, 0.0f}, // 0 - BL
-		{1.0f, -1.0f, 0.0f, 1.0f, 0.0f},  // 1 - BR
-		{-1.0f, 1.0f, 0.0f, 0.0f, 1.0f},  // 2 - TL
-		{1.0f, 1.0f, 0.0f, 1.0f, 1.0f}	// 3 - TR
-	};
-
-	unsigned short texturedQuadIndices[4] = {0, 1, 2, 3};
-
-	glGenVertexArrays(1, &texturedQuadVAO);
-	glBindVertexArray(texturedQuadVAO);
-	glGenBuffers(2, vbods);
-	glBindBuffer(GL_ARRAY_BUFFER, vbods[0]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(texturedQuadVerts), texturedQuadVerts, GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbods[1]);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(texturedQuadIndices), texturedQuadIndices, GL_STATIC_DRAW);
+	
+	trees = new Billboard();
+	trees->setUniformLocation(uniform_phong_mv_loc, uniform_phong_norm_loc);
+	trees->setAttributeLocation(attrib_phong_vpos_loc, attrib_phong_vtex_loc, attrib_phong_vnorm_loc);
+	trees->setupBillboardBuffer();
+	trees->add(glm::vec3(15, 10, 5), glm::vec2(5, 10));
 }
 
 void renderParticleSystems(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
@@ -791,7 +780,7 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	glUniformMatrix4fv(uniform_modelMtx_loc, 1, GL_FALSE, &m[0][0]);
 	glUniformMatrix4fv(uniform_viewProjetionMtx_loc, 1, GL_FALSE, &vp[0][0]);
 	glUniform1ui(uniform_tex_loc, GL_TEXTURE0);
-
+	
 	glm::vec3 white(1, 1, 1);
 	glUniform3fv(uniform_color_loc, 1, &white[0]);
 
@@ -800,27 +789,60 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	{
 		glBindTexture(GL_TEXTURE_2D, skyboxHandles[i]);
 		glBindVertexArray(skyboxVAOds[i]);
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, (void *)0);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	}
+	
+	modelPhongShaderProgram->useProgram();
+	glUniform3fv(uniform_phong_lp_loc, 2, (const GLfloat*) &lightPos[0]);
+	glUniform4fv(uniform_phong_la_loc, 2, (const GLfloat*) &lightA[0]);
+	glUniform4fv(uniform_phong_ld_loc, 2, (const GLfloat*) &lightD[0]);
+	glUniform4fv(uniform_phong_ls_loc, 2, (const GLfloat*) &lightS[0]);
+	glUniformMatrix4fv(uniform_phong_v_loc, 1, GL_FALSE, &viewMatrix[0][0]);
+	glUniformMatrix4fv(uniform_phong_p_loc, 1, GL_FALSE, &projectionMatrix[0][0]);
+	glUniform1i(uniform_phong_txtr_loc, GL_TEXTURE0);
+	
+	glm::mat4 mv = viewMatrix * m;
+	glm::mat4 nMtx = glm::transpose(glm::inverse(mv));
+	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &mv[0][0]);
+	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &nMtx[0][0]);
+	
 
 	// draw the platform
 	glBindTexture(GL_TEXTURE_2D, platformTextureHandle);
-	glBindVertexArray(platformVAOd);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, (void *)0);
-
+	platform->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
+				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
+				GL_TEXTURE0);
+	
+	glBindTexture(GL_TEXTURE_2D, treeTextureHandle);
+	trees->drawBillboard(m, viewMatrix);
+	
+	// draw the pyramid
+	glBindTexture(GL_TEXTURE_2D, pyramidTextureHandle);
+	glm::mat4 pyMV = glm::translate(glm::mat4(), glm::vec3(-35, 10, 0));
+	pyMV = glm::scale(pyMV, glm::vec3(20, 10, 20));
+	pyMV = glm::rotate(pyMV, (float) M_PI/2.0f, glm::vec3(1, 0, 0));
+	
+	pyMV = viewMatrix * pyMV;
+	glm::mat4 pyNMtx = glm::transpose(glm::inverse(pyMV));
+	
+	
+	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &pyMV[0][0]);
+	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &pyNMtx[0][0]);
+	glUniform1i(uniform_phong_txtr_loc, 0);
+	pyramid->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
+				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
+				GL_TEXTURE0);
+	
 	// translate the model up slightly to prevent depth fighting on the platform
 	m = glm::translate(m, glm::vec3(4, 0.1, -platformSize));
 
-	glm::mat4 mv = viewMatrix * m;
-	glm::mat4 nMtx = glm::transpose(glm::inverse(mv));
+	mv = viewMatrix * m;
+	nMtx = glm::transpose(glm::inverse(mv));
 
 	// use our textured phong shader program for the model
 	modelPhongShaderProgram->useProgram();
 	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &mv[0][0]);
-	glUniformMatrix4fv(uniform_phong_v_loc, 1, GL_FALSE, &viewMatrix[0][0]);
-	glUniformMatrix4fv(uniform_phong_p_loc, 1, GL_FALSE, &projectionMatrix[0][0]);
 	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &nMtx[0][0]);
-	glUniform1i(uniform_phong_txtr_loc, 0);
 
 	// draw the buildings
 	model->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
@@ -840,6 +862,18 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	renderParticleSystems(viewMatrix, projectionMatrix);
 
 	masterTime += 1.0f/20.0f;
+}
+
+void modifyLight(){
+	if(light1Angle > 6.24){
+		light1Angle -= 6.24;
+		lightDO = lightDN;
+		lightDN = glm::vec4(rand()/(float)RAND_MAX, rand()/(float)RAND_MAX, rand()/(float)RAND_MAX, 1.0f);
+	} 
+	light1Angle += 0.02;
+	lightD[1] = glm::mix(lightDO, lightDN, (light1Angle/6.24));
+	lightPos[1] = glm::vec3(20*cos(light1Angle), 10, 20*sin(light1Angle));
+	
 }
 
 ///*****************************************************************************
@@ -878,6 +912,7 @@ int main(int argc, char *argv[])
 	//  This is our draw loop - all rendering is done here.  We use a loop to keep the window open
 	//	until the user decides to close the window and quit the program.  Without a loop, the
 	//	window will display once and then the program exits.
+	
 	while (!glfwWindowShouldClose(window))
 	{ // check if the window was instructed to be closed
 		// Get the size of our window framebuffer.  Ideally this should be the same dimensions as our window, but
@@ -902,7 +937,7 @@ int main(int argc, char *argv[])
 		// set up our look at matrix to position our camera
 		glm::mat4 viewMatrix = glm::lookAt(eyePoint, lookAtPoint, upVector);
 
-		// pass our view and projection matricesa
+		modifyLight();
 		renderScene(viewMatrix, projectionMatrix, current_time - last_time);
 
 		glFlush();

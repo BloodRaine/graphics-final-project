@@ -22,8 +22,7 @@
 ########################################
 
 TARGET = aaru_park
-OBJECTS = src/main.o src/ParticleSystem.o src/FountainParticleSystem.o src/md5anim.o src/md5mesh.o 
-# src/lab08.o
+OBJECTS = src/main.o src/ParticleSystem.o src/FountainParticleSystem.o src/md5anim.o src/md5mesh.o src/Billboard.o
 
 LOCAL_INC_PATH = ../include
 LOCAL_LIB_PATH = ../lib
