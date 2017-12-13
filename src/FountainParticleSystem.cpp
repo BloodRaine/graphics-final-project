@@ -8,7 +8,8 @@ FountainParticleSystem::FountainParticleSystem(Type type, glm::vec3 pos, float m
     this->maxVelocity = maxVel;
     this->maxAngleFromY = angle;
     this->gravity = g;
-    this->maxAge = age;
+    this->maxAge = abs(age);
+    this->minAge = 60;
     this->spawnRate = rate;
     this->handle = handle;
     this->mass = 1000;
@@ -22,15 +23,15 @@ void FountainParticleSystem::updateParticles(int t) {
 
     for (Particle *particle : this->particles)
     {
-        if (particle->position.y < -0.1) {
+        if (particle->position.y < -0.01 || particle->maxAge < 0.0) {
+            
             this->particles.erase(this->particles.begin() + c);
-        } else if (particle->maxAge > 0.0) {
+        } else {//(particle->maxAge > 0.0) {
+
             glm::vec3 a = glm::vec3(0, gravity, 0) / particle->mass;
-            particle->velocity += (a * (t - particle->startTime)/2.0f);
+            particle->velocity += (a * (t - particle->startTime));
             // applyForce(glm::vec3(0, gravity, 0), (t - particle->startTime)/60.0f);
             particle->updatePosition();
-        } else {
-            this->particles.erase(this->particles.begin() + c);
         }
         c++;
     }

@@ -31,7 +31,7 @@
 
 #include <CSCI441/FramebufferUtils3.hpp>
 #include <CSCI441/modelLoader3.hpp>
-#include <CSCI441/objects3.hpp>
+// #include <CSCI441/objects3.hpp>
 #include <CSCI441/ShaderProgram3.hpp>
 
 #include "../include/MD5/md5model.h" // for our MD5 Model
@@ -68,12 +68,10 @@ CSCI441::ShaderProgram *textureShaderProgram, *hellknightShaderProgram, *hellkni
 GLint uniform_modelMtx_loc, uniform_viewProjetionMtx_loc, uniform_tex_loc, uniform_color_loc;
 GLint attrib_vPos_loc, attrib_vTextureCoord_loc;
 
-CSCI441::ShaderProgram *modelPhongShaderProgram = NULL;
+CSCI441::ShaderProgram *modelPhongShaderProgram = NULL; 
 GLint uniform_phong_mv_loc, uniform_phong_v_loc, uniform_phong_p_loc, uniform_phong_norm_loc;
 GLint uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_ma_loc, uniform_phong_s_loc;
 GLint uniform_phong_lp_loc, uniform_phong_la_loc, uniform_phong_ld_loc, uniform_phong_ls_loc;
-GLint uniform_phong_txtr_loc;
-GLint attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc;
 GLint uniform_phong_txtr_loc, attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc;
 
 CSCI441::ModelLoader *model = NULL;
@@ -322,7 +320,7 @@ void setupSkybox() {
 void setupParticleSystems() {
 	// main fountain particle system
 	GLint handle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/snowflake.png");
-	FountainParticleSystem *fountainSystem = new FountainParticleSystem(FOUNTAIN, glm::vec3(0, 0, 0), 0.2f, 0.1f, 10, 100, -9.81, 1000, handle);
+	FountainParticleSystem *fountainSystem = new FountainParticleSystem(FOUNTAIN, glm::vec3(0, 0, 0), 0.3f, 0.1f, 8, 100, -9.81, 1000, handle);
 	systems.push_back(fountainSystem);
 } 
 
@@ -813,6 +811,7 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
 	
+	// draw the trees
 	glBindTexture(GL_TEXTURE_2D, treeTextureHandle);
 	trees->drawBillboard(m, viewMatrix);
 	
@@ -864,7 +863,7 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	masterTime += 1.0f/20.0f;
 }
 
-void modifyLight(){
+void modifyLight() {
 	if(light1Angle > 6.24){
 		light1Angle -= 6.24;
 		lightDO = lightDN;
@@ -906,8 +905,8 @@ int main(int argc, char *argv[])
 
 	double current_time = 0, last_time = 0;
 
-	CSCI441::setVertexAttributeLocations(attrib_vPos_loc, -1, attrib_vTextureCoord_loc);
-	CSCI441::drawSolidSphere(1, 16, 16); // strange hack I need to make spheres draw - don't have time to investigate why..it's a bug with my library
+	// CSCI441::setVertexAttributeLocations(attrib_vPos_loc, -1, attrib_vTextureCoord_loc);
+	// CSCI441::drawSolidSphere(1, 16, 16); // strange hack I need to make spheres draw - don't have time to investigate why..it's a bug with my library
 
 	//  This is our draw loop - all rendering is done here.  We use a loop to keep the window open
 	//	until the user decides to close the window and quit the program.  Without a loop, the
@@ -926,7 +925,6 @@ int main(int argc, char *argv[])
 
 		glViewport(0, 0, windowWidth, windowHeight);
 
-		// glViewport( 0, 0, windowWidth, windowHeight );
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the current color contents and depth buffer in the framebuffer
 
 		// set the projection matrix based on the window size
