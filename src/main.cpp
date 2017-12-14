@@ -160,7 +160,8 @@ void convertSphericalToCartesian()
 	eyePoint.x = cameraAngles.z * sinf(cameraAngles.x) * sinf(cameraAngles.y);
 	eyePoint.y = cameraAngles.z * -cosf(cameraAngles.y);
 	eyePoint.z = cameraAngles.z * -cosf(cameraAngles.x) * sinf(cameraAngles.y);
-	trees->updateBillboardAngle(eyePoint);
+	if(playerView) trees->updateBillboardAngle(eyePoint + playerLocation);
+	else trees->updateBillboardAngle(eyePoint);
 }
 
 bool registerOpenGLTexture(unsigned char *textureData,
@@ -218,7 +219,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 		// displayWireframe = !displayWireframe;
 	// else if (key == GLFW_KEY_M && action == GLFW_PRESS)
 		// displayMesh = !displayMesh;
-	else if (key == GLFW_KEY_F && action == GLFW_PRESS) 
+	else if (key == GLFW_KEY_F && (action == GLFW_PRESS || action == GLFW_REPEAT)) 
 		generateShower();
 	else if (key == GLFW_KEY_V && action == GLFW_PRESS)
 		playerView = !playerView;
@@ -722,9 +723,11 @@ void setupBuffers()
 	trees->setAttributeLocation(attrib_phong_vpos_loc, attrib_phong_vtex_loc, attrib_phong_vnorm_loc);
 	trees->setupBillboardBuffer();
 	trees->add(glm::vec3(19, 8, 19), glm::vec2(4, 8));
-	trees->add(glm::vec3(-19, 8, -19), glm::vec2(4, 8));
-	trees->add(glm::vec3(-19, 8, 19), glm::vec2(4, 8));
 	trees->add(glm::vec3(19, 8, -19), glm::vec2(4, 8));
+	for(int i = -19; i > -platformSize*3.0f; i -= 8){
+		trees->add(glm::vec3(i, 8, -19), glm::vec2(4, 8));
+		trees->add(glm::vec3(i, 8, 19), glm::vec2(4, 8));
+	}
 	
 }
 
@@ -845,6 +848,14 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
 	
+	glm::mat4 plat = glm::translate(glm::mat4(), glm::vec3(-platformSize*2.0f, 0, 0));
+	mv = viewMatrix * plat;
+	nMtx = glm::transpose(glm::inverse(mv));
+	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &mv[0][0]);
+	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &nMtx[0][0]);
+	platform->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
+				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
+				GL_TEXTURE0);
 	// draw the trees
 	glBindTexture(GL_TEXTURE_2D, treeTextureHandle);
 	trees->drawBillboard(m, viewMatrix);
@@ -923,6 +934,7 @@ void movePlayer(){
 	if(playerLocationTest.z < test-5.0f && playerLocationTest.z > -test+5.0f && playerLocationTest.x < test-1.0f && playerLocationTest.x > -test+1.0f){
 		playerLocation = playerLocationTest;
 	}
+	if(playerView) trees->updateBillboardAngle(eyePoint + playerLocation);
 }
 
 ///*****************************************************************************
