@@ -27,7 +27,7 @@ OBJECTS = src/main.o src/ParticleSystem.o src/FountainParticleSystem.o src/md5an
 LOCAL_INC_PATH = ../include
 LOCAL_LIB_PATH = ../lib
 
-BUILDING_IN_LAB = 1
+BUILDING_IN_LAB = 0
 
 #########################################################################################
 #########################################################################################

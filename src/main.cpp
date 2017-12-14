@@ -851,6 +851,8 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
 	
+	glm::vec3 pl(9999, 9999, 9999);
+	glUniform3fv(uniform_phong_pc_loc, 1, &pl[0]);
 	glm::mat4 plat = glm::translate(glm::mat4(), glm::vec3(-platformSize*2.0f, 0, 0));
 	mv = viewMatrix * plat;
 	nMtx = glm::transpose(glm::inverse(mv));
@@ -859,9 +861,7 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	platform->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
-				
-	glm::vec3 pl(999999, 999999, 999999);
-	glUniform3fv(uniform_phong_pc_loc, 1, (const GLfloat*) &pl[0]);
+			
 	// draw the trees
 	glBindTexture(GL_TEXTURE_2D, treeTextureHandle);
 	trees->drawBillboard(m, viewMatrix);
