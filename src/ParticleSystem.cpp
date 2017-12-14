@@ -6,7 +6,6 @@ struct Vertex
 };
 
 ParticleSystem::ParticleSystem() {
-    printf("Yoohoo");
 }
 
 ParticleSystem::ParticleSystem(glm::vec3 loc, float maxVel, float minVel, float g, float rate) {

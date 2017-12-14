@@ -7,7 +7,7 @@
 
 using namespace std;
 
-enum Type { FOUNTAIN, FIREWORK };
+enum Type { FOUNTAIN, FIREWORK, SHOWER};
 
 class ParticleSystem {
     public:
@@ -29,5 +29,6 @@ class ParticleSystem {
         virtual void updateParticles(int t) = 0;
         virtual void draw(GLuint pointsVAO, GLuint pointsVBO, GLuint textureHandle);
         // virtual void render();
+		virtual bool removeSystem() { return false; };
         GLfloat randNumber(int max);
 };
