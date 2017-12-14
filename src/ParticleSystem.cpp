@@ -37,7 +37,12 @@ void ParticleSystem::draw(GLuint pointsVAO, GLuint pointsVBO, GLuint textureHand
     glBindVertexArray(pointsVAO);
     glBindBuffer(GL_ARRAY_BUFFER, pointsVBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
-
-    glBindTexture(GL_TEXTURE_2D, textureHandle);
+    if (type == FOUNTAIN) {
+        glBindTexture(GL_TEXTURE_2D, textureHandle);
+    }
     glDrawArrays(GL_POINTS, 0, this->particles.size());
+}
+
+void ParticleSystem::start(float t) {
+    printf("EEEK");
 }

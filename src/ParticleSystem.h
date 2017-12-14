@@ -30,4 +30,5 @@ class ParticleSystem {
         virtual void draw(GLuint pointsVAO, GLuint pointsVBO, GLuint textureHandle);
         // virtual void render();
         GLfloat randNumber(int max);
+        virtual void start(float t);
 };

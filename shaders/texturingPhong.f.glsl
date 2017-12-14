@@ -21,7 +21,7 @@ void main() {
 
 	fragColorOut = vec4(0, 0, 0, 0);
 	vec4 texel = texture( txtr, texCoord );
-	if(texel.a < 0.4){
+	if(texel.a < 0.4) {
 		discard;
 		return;
 	}

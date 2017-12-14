@@ -36,6 +36,7 @@
 
 #include "../include/MD5/md5model.h" // for our MD5 Model
 #include "FountainParticleSystem.h"
+#include "FireworkParticleSystem.h"
 
 #include "Billboard.h"
 //******************************************************************************
@@ -89,6 +90,7 @@ vector<GLuint> particleTextureHandles;
 vector<GLint> modelview_uniform_locations;
 vector<GLint> projection_uniform_locations;
 vector<GLint> vpos_attrib_locations;
+vector<GLint> time_uniform_locations;
 GLuint pointsVAO;
 GLuint pointsVBO;
 
@@ -203,6 +205,14 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 		displayWireframe = !displayWireframe;
 	else if (key == GLFW_KEY_M && action == GLFW_PRESS)
 		displayMesh = !displayMesh;
+	else if (key == GLFW_KEY_G && action == GLFW_PRESS) {
+		for (ParticleSystem *s : systems) {
+			if (s->type == FIREWORK) {
+				s->start(masterTime);
+			}
+		}
+	}
+
 }
 
 // mouse_button_callback() /////////////////////////////////////////////////////
@@ -316,17 +326,25 @@ static void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
 void setupSkybox() {
 
 }
+float randNumber(int max)
+{
+	return rand() / (GLfloat)RAND_MAX * max * 2.0 - max;
+}
 
 void setupParticleSystems() {
 	// main fountain particle system
-	GLint handle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/snowflake.png");
-	FountainParticleSystem *fountainSystem = new FountainParticleSystem(FOUNTAIN, glm::vec3(0, 0, 0), 0.3f, 0.1f, 8, 100, -9.81, 1000, handle);
-	systems.push_back(fountainSystem);
+	// GLint handle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/BubbleSimple.png");
+	// FountainParticleSystem *fountainSystem = new FountainParticleSystem(FOUNTAIN, glm::vec3(0, 0, 0), 0.3f, 0.1f, 8, 100, -9.81, 1000, handle);
+	// systems.push_back(fountainSystem);
+
+	glm::vec3 position = glm::vec3(randNumber(platformSize/2), 15, randNumber(platformSize/2));
+	FireworkParticleSystem * firework = new FireworkParticleSystem(FIREWORK, position, 0.4f, 150, 0.0, 1000);
+	systems.push_back(firework);
 } 
 
 void updateParticleSystems() {
-	// printf("%f\n", masterTime);
-	for (ParticleSystem* s : systems) {
+	for (ParticleSystem *s : systems)
+	{
 		s->updateParticles(masterTime);
 	}
 }
@@ -531,6 +549,7 @@ void setupShaders()
 	CSCI441::ShaderProgram* program = NULL;
 	GLuint modelview_uniform_location = -1;
 	GLuint projection_uniform_location = -1;
+	GLint time_uniform_location = -1;
 	GLint vpos_attrib_location = -1;
 
 	for (ParticleSystem* s : systems) {
@@ -550,7 +569,19 @@ void setupShaders()
 				vpos_attrib_locations.push_back(vpos_attrib_location);
 				break;
 			case FIREWORK:
-				printf("COMING SOON......");
+				program = new CSCI441::ShaderProgram("shaders/firework.v.glsl",
+													 "shaders/firework.g.glsl",
+													 "shaders/firework.f.glsl");
+				modelview_uniform_location = program->getUniformLocation("mvMatrix");
+				projection_uniform_location = program->getUniformLocation("projMatrix");
+				vpos_attrib_location = program->getAttributeLocation("vPos");
+				time_uniform_location = program->getUniformLocation("time");
+
+				particleShaderPrograms.push_back(program);
+				modelview_uniform_locations.push_back(modelview_uniform_location);
+				projection_uniform_locations.push_back(projection_uniform_location);
+				vpos_attrib_locations.push_back(vpos_attrib_location);
+				time_uniform_locations.push_back(time_uniform_location);
 				break;
 		}
 		
@@ -595,9 +626,6 @@ void setupBuffers()
 	//////////////////////////////////////////
 	//
 	// SKYBOX
-
-	unsigned short skyboxIndices[4] = {
-		0, 1, 2, 3};
 
 	GLfloat skyboxDim = 40.0f;
 	VertexTextured skyboxVertices[6][4] = {
@@ -671,9 +699,9 @@ void setupBuffers()
 }
 
 void renderParticleSystems(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
-
+	int count = 0;
 	for (int i = 0; i < systems.size(); i++) {
-		particleShaderPrograms[i]->useProgram(); 
+		particleShaderPrograms[i]->useProgram();
 
 		// precompute our MVP CPU side so it only needs to be computed once
 		glm::mat4 modelMatrix = glm::mat4();
@@ -683,6 +711,10 @@ void renderParticleSystems(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
 		// send MVP to GPU
 		glUniformMatrix4fv(modelview_uniform_locations[i], 1, GL_FALSE, &mvMtx[0][0]);
 		glUniformMatrix4fv(projection_uniform_locations[i], 1, GL_FALSE, &projMatrix[0][0]);
+		if (systems[i]->type == FIREWORK) {
+			glUniform1f(time_uniform_locations[count], glfwGetTime());
+			count++;
+		}
 
 		// sort!
 		glm::vec3 view = glm::normalize(lookAtPoint - eyePoint);
@@ -721,7 +753,6 @@ void renderParticleSystems(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
 		        }
 		    }
 		}
-		
 		systems[i]->draw(pointsVAO, pointsVBO, systems[i]->handle);
 	}
 }
@@ -737,7 +768,6 @@ void renderParticleSystems(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
 ////////////////////////////////////////////////////////////////////////////////
 void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaTime)
 {
-
 	updateParticleSystems();
 	glm::mat4 m, vp = projectionMatrix * viewMatrix;
 
@@ -803,7 +833,6 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	glm::mat4 nMtx = glm::transpose(glm::inverse(mv));
 	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &mv[0][0]);
 	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &nMtx[0][0]);
-	
 
 	// draw the platform
 	glBindTexture(GL_TEXTURE_2D, platformTextureHandle);
@@ -896,10 +925,10 @@ int main(int argc, char *argv[])
 	setupTextures();				  // load all textures into memory
 	loadMD5Model();					  // load the MD5 Model & animation if provided
 
-	for (int i = 0; i < systems.size(); i++) {
-		glValidateProgram(particleShaderPrograms[i]->getShaderProgramHandle());
-		CSCI441_INTERNAL::ShaderUtils::printLog(particleShaderPrograms[i]->getShaderProgramHandle());
-	}
+	// for (int i = 0; i < systems.size(); i++) {
+	// 	glValidateProgram(particleShaderPrograms[i]->getShaderProgramHandle());
+	// 	CSCI441_INTERNAL::ShaderUtils::printLog(particleShaderPrograms[i]->getShaderProgramHandle());
+	// }
 
 	convertSphericalToCartesian(); // set up our camera position
 

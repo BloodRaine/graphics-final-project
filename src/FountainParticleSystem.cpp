@@ -26,14 +26,15 @@ void FountainParticleSystem::updateParticles(int t) {
         if (particle->position.y < -0.01 || particle->maxAge < 0.0) {
             
             this->particles.erase(this->particles.begin() + c);
-        } else {//(particle->maxAge > 0.0) {
+        } else {
 
             glm::vec3 a = glm::vec3(0, gravity, 0) / particle->mass;
             particle->velocity += (a * (t - particle->startTime));
             // applyForce(glm::vec3(0, gravity, 0), (t - particle->startTime)/60.0f);
             particle->updatePosition();
+            c++;
         }
-        c++;
+        
     }
 }
 

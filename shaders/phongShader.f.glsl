@@ -30,8 +30,6 @@ void main() {
     float dCont = max(0.0, dot(surface2Light, norm));
     vec3 diffuse = lDiff * matDiff * dCont;
 
-    
-
     vec3 specular = vec3(0.0);
     if (dCont > 0.0) {
         vec3 surface2Cam = normalize(camPos-position);
@@ -39,7 +37,6 @@ void main() {
         float sCont = pow(max(0.0, dot(surface2Cam, reflection)), shininess);
         specular = lSpec * matSpec * sCont;
     }
-    
 
     colorOut = vec4(ambient + diffuse + specular, 1.0);
 }
