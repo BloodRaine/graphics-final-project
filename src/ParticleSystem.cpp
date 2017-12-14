@@ -6,7 +6,6 @@ struct Vertex
 };
 
 ParticleSystem::ParticleSystem() {
-    printf("Yoohoo");
 }
 
 ParticleSystem::ParticleSystem(glm::vec3 loc, float maxVel, float minVel, float g, float rate) {
@@ -41,8 +40,4 @@ void ParticleSystem::draw(GLuint pointsVAO, GLuint pointsVBO, GLuint textureHand
         glBindTexture(GL_TEXTURE_2D, textureHandle);
     }
     glDrawArrays(GL_POINTS, 0, this->particles.size());
-}
-
-void ParticleSystem::start(float t) {
-    printf("EEEK");
 }

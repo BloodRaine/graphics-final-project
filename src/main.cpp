@@ -14,6 +14,9 @@
  */
 
 //******************************************************************************
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h> // include GLFW framework header
@@ -36,6 +39,7 @@
 
 #include "../include/MD5/md5model.h" // for our MD5 Model
 #include "FountainParticleSystem.h"
+#include "ShowerParticleSystem.h"
 #include "FireworkParticleSystem.h"
 
 #include "Billboard.h"
@@ -73,6 +77,7 @@ CSCI441::ShaderProgram *modelPhongShaderProgram = NULL;
 GLint uniform_phong_mv_loc, uniform_phong_v_loc, uniform_phong_p_loc, uniform_phong_norm_loc;
 GLint uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_ma_loc, uniform_phong_s_loc;
 GLint uniform_phong_lp_loc, uniform_phong_la_loc, uniform_phong_ld_loc, uniform_phong_ls_loc;
+GLint uniform_phong_pc_loc;
 GLint uniform_phong_txtr_loc, attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc;
 
 CSCI441::ModelLoader *model = NULL;
@@ -93,8 +98,6 @@ vector<GLint> vpos_attrib_locations;
 vector<GLint> time_uniform_locations;
 GLuint pointsVAO;
 GLuint pointsVBO;
-
-int NUM_POINTS = 99999000;
 
 float masterTime = 0;
 
@@ -119,6 +122,9 @@ GLint pt_model_location, pt_view_location, pt_projection_location, pt_texture_lo
 Billboard *trees = NULL;
 GLuint treeTextureHandle;
 
+GLuint showerTextureHandle;
+GLuint color_uniform_location;
+
 CSCI441::ModelLoader *pyramid = NULL;
 GLuint pyramidTextureHandle;
 GLfloat light1Angle = 0.0f;
@@ -131,6 +137,16 @@ glm::vec4 lightD[2] = {glm::vec4(0.2f, 0.2f, 0.2f, 1.0f),
 glm::vec4 lightS[2] = {glm::vec4(0.2f, 0.2f, 0.2f, 1.0f), 
 					   glm::vec4(0.5f, 0.5f, 0.5f, 1.0f)};
 glm::vec4 lightDN, lightDO(1.0f, 1.0f, 1.0f, 1.0f);
+
+glm::vec3 playerLocation( 0.0f, 0.0f, 0.0f);
+glm::vec3 playerDirection;
+GLfloat playerAngle = 0.0f;
+GLint playerMove, playerRotate;
+
+GLint NUM_POINTS = 9999999;
+bool playerView = false;
+
+void generateShower();
 //******************************************************************************
 //
 // Helper Functions
@@ -147,7 +163,8 @@ void convertSphericalToCartesian()
 	eyePoint.x = cameraAngles.z * sinf(cameraAngles.x) * sinf(cameraAngles.y);
 	eyePoint.y = cameraAngles.z * -cosf(cameraAngles.y);
 	eyePoint.z = cameraAngles.z * -cosf(cameraAngles.x) * sinf(cameraAngles.y);
-	trees->updateBillboardAngle(eyePoint);
+	if(playerView) trees->updateBillboardAngle(eyePoint + playerLocation);
+	else trees->updateBillboardAngle(eyePoint);
 }
 
 bool registerOpenGLTexture(unsigned char *textureData,
@@ -199,20 +216,46 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 {
 	if ((key == GLFW_KEY_ESCAPE || key == 'Q') && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
-	else if (key == GLFW_KEY_S && action == GLFW_PRESS)
-		displaySkeleton = !displaySkeleton;
-	else if (key == GLFW_KEY_W && action == GLFW_PRESS)
-		displayWireframe = !displayWireframe;
-	else if (key == GLFW_KEY_M && action == GLFW_PRESS)
-		displayMesh = !displayMesh;
-	else if (key == GLFW_KEY_G && action == GLFW_PRESS) {
-		for (ParticleSystem *s : systems) {
-			if (s->type == FIREWORK) {
-				s->start(masterTime);
-			}
+	// else if (key == GLFW_KEY_S && action == GLFW_PRESS)
+		// displaySkeleton = !displaySkeleton;
+	// else if (key == GLFW_KEY_W && action == GLFW_PRESS)
+		// displayWireframe = !displayWireframe;
+	// else if (key == GLFW_KEY_M && action == GLFW_PRESS)
+		// displayMesh = !displayMesh;
+	else if (key == GLFW_KEY_F && (action == GLFW_PRESS || action == GLFW_REPEAT)) 
+		generateShower();
+	else if (key == GLFW_KEY_V && action == GLFW_PRESS)
+		playerView = !playerView;
+	
+	if(action == GLFW_PRESS){
+		switch(key){
+			case GLFW_KEY_UP:
+				playerMove = 1;
+				break;
+			case GLFW_KEY_DOWN:
+				playerMove = -1;
+				break;	
+			case GLFW_KEY_RIGHT:
+				playerRotate = -1;
+				break;
+			case GLFW_KEY_LEFT: 
+				playerRotate = 1;
+				break;
 		}
 	}
-
+	
+	if(action == GLFW_RELEASE){
+		switch(key){
+			case GLFW_KEY_UP:
+			case GLFW_KEY_DOWN:
+				playerMove = 0;
+				break;
+			case GLFW_KEY_RIGHT:
+			case GLFW_KEY_LEFT: 
+				playerRotate = 0;
+				break;
+		}
+	}
 }
 
 // mouse_button_callback() /////////////////////////////////////////////////////
@@ -343,9 +386,15 @@ void setupParticleSystems() {
 } 
 
 void updateParticleSystems() {
-	for (ParticleSystem *s : systems)
-	{
+	// printf("%f\n", masterTime);
+	int c = 0;
+	for (ParticleSystem* s : systems) {
 		s->updateParticles(masterTime);
+		if(s->removeSystem()){
+			systems.erase(systems.begin() + c);
+			c--;
+		}
+		c++;
 	}
 }
 
@@ -414,7 +463,7 @@ GLFWwindow *setupGLFW()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);				   // request OpenGL 3.3 context
 
 	// create a window for a given size, with a given title
-	GLFWwindow *window = glfwCreateWindow(640, 480, "Lab12: FBOs", NULL, NULL);
+	GLFWwindow *window = glfwCreateWindow(1280, 720, "Final Project", NULL, NULL);
 	if (!window)
 	{ // if the window could not be created, NULL is returned
 		fprintf(stderr, "[ERROR]: GLFW Window could not be created\n");
@@ -499,6 +548,8 @@ void setupTextures()
 	
 	pyramidTextureHandle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/pyramid.jpg");
 	
+	showerTextureHandle = CSCI441::TextureUtils::loadAndRegisterTexture("textures/burst.png");
+	
 	// and get handles for our full skybox
 	printf("[INFO]: registering skybox...\n");
 	fflush(stdout);
@@ -535,6 +586,7 @@ void setupShaders()
 	uniform_phong_la_loc = modelPhongShaderProgram->getUniformLocation("lightAmbient");
 	uniform_phong_ld_loc = modelPhongShaderProgram->getUniformLocation("lightDiffuse");
 	uniform_phong_ls_loc = modelPhongShaderProgram->getUniformLocation("lightSpecular");
+	uniform_phong_pc_loc = modelPhongShaderProgram->getUniformLocation("playerCoord");
 	attrib_phong_vpos_loc = modelPhongShaderProgram->getAttributeLocation("vPos");
 	attrib_phong_vnorm_loc = modelPhongShaderProgram->getAttributeLocation("vNormal");
 	attrib_phong_vtex_loc = modelPhongShaderProgram->getAttributeLocation("vTexCoord");
@@ -551,7 +603,7 @@ void setupShaders()
 	GLuint projection_uniform_location = -1;
 	GLint time_uniform_location = -1;
 	GLint vpos_attrib_location = -1;
-
+	
 	for (ParticleSystem* s : systems) {
 		switch(s->type) { 
 			case FOUNTAIN:
@@ -561,6 +613,7 @@ void setupShaders()
 
 				modelview_uniform_location = program->getUniformLocation("mvMatrix");
 				projection_uniform_location = program->getUniformLocation("projMatrix");
+				color_uniform_location = program->getUniformLocation("color");
 				vpos_attrib_location = program->getAttributeLocation("vPos");
 
 				particleShaderPrograms.push_back(program);
@@ -582,6 +635,7 @@ void setupShaders()
 				projection_uniform_locations.push_back(projection_uniform_location);
 				vpos_attrib_locations.push_back(vpos_attrib_location);
 				time_uniform_locations.push_back(time_uniform_location);
+			default:
 				break;
 		}
 		
@@ -627,7 +681,7 @@ void setupBuffers()
 	//
 	// SKYBOX
 
-	GLfloat skyboxDim = 40.0f;
+	GLfloat skyboxDim = 80.0f;
 	VertexTextured skyboxVertices[6][4] = {
 		{
 			// back
@@ -695,64 +749,43 @@ void setupBuffers()
 	trees->setUniformLocation(uniform_phong_mv_loc, uniform_phong_norm_loc);
 	trees->setAttributeLocation(attrib_phong_vpos_loc, attrib_phong_vtex_loc, attrib_phong_vnorm_loc);
 	trees->setupBillboardBuffer();
-	trees->add(glm::vec3(15, 10, 5), glm::vec2(5, 10));
+	trees->add(glm::vec3(19, 8, 19), glm::vec2(4, 8));
+	trees->add(glm::vec3(19, 8, -19), glm::vec2(4, 8));
+	for(int i = -19; i > -platformSize*3.0f; i -= 8){
+		trees->add(glm::vec3(i, 8, -19), glm::vec2(4, 8));
+		trees->add(glm::vec3(i, 8, 19), glm::vec2(4, 8));
+	}
+	
+}
+
+void generateShower(){
+	glm::vec3 pos = playerLocation;
+	pos.y = rand()/(float) RAND_MAX * 10 + 10;
+	ShowerParticleSystem *f = new ShowerParticleSystem(SHOWER, pos, 0.2f, 0.1f, 100, -1, 100, 50, showerTextureHandle, color_uniform_location);
+	systems.push_back(f);
 }
 
 void renderParticleSystems(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
-	int count = 0;
-	for (int i = 0; i < systems.size(); i++) {
-		particleShaderPrograms[i]->useProgram();
-
+	
+	for (GLuint i = 0; i < systems.size(); i++) {
+		GLuint pro = i;
+		if(systems[i]->type == SHOWER) pro = 0;
+		particleShaderPrograms[pro]->useProgram(); 
+		
+		glUniform3fv(color_uniform_location, 1, (const GLfloat*) &lightD[1]);
+		
 		// precompute our MVP CPU side so it only needs to be computed once
 		glm::mat4 modelMatrix = glm::mat4();
-
 		glm::mat4 mvMtx = viewMatrix * modelMatrix;
-
+		
 		// send MVP to GPU
-		glUniformMatrix4fv(modelview_uniform_locations[i], 1, GL_FALSE, &mvMtx[0][0]);
-		glUniformMatrix4fv(projection_uniform_locations[i], 1, GL_FALSE, &projMatrix[0][0]);
+		glUniformMatrix4fv(modelview_uniform_locations[pro], 1, GL_FALSE, &mvMtx[0][0]);
+		glUniformMatrix4fv(projection_uniform_locations[pro], 1, GL_FALSE, &projMatrix[0][0]);
 		if (systems[i]->type == FIREWORK) {
 			glUniform1f(time_uniform_locations[count], glfwGetTime());
 			count++;
-		}
 
-		// sort!
-		glm::vec3 view = glm::normalize(lookAtPoint - eyePoint);
-
-		int NUM_POINT = systems[i]->particles.size();
-
-		int orderedIndices[NUM_POINT];
-		double distances[NUM_POINT];
-
-		int count = 0;
-
-		for (Particle *p : systems[i]->particles)
-		{
-		    glm::vec4 pos = modelMatrix * glm::vec4(p->position.x, p->position.y, p->position.z, 1);
-		    glm::vec3 ep = glm::vec3(pos) - eyePoint;
-		    double vp = glm::dot(view, ep);
-
-		    orderedIndices[count] = count;
-		    distances[count] = vp;
-		    count++;
-		}
-
-		for (int i = 0; i < NUM_POINT; i++)
-		{
-		    for (int j = 0; j < NUM_POINT; j++)
-		    {
-		        if (distances[j] < distances[i])
-		        {
-		            double dist = distances[j];
-		            distances[j] = distances[i];
-		            distances[i] = dist;
-
-		            int index = orderedIndices[j];
-		            orderedIndices[j] = orderedIndices[i];
-		            orderedIndices[i] = index;
-		        }
-		    }
-		}
+		// sort
 		systems[i]->draw(pointsVAO, pointsVBO, systems[i]->handle);
 	}
 }
@@ -774,15 +807,16 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	hellknightShaderProgram->useProgram();
 
 	//
-	glm::mat4 mod = glm::rotate(glm::mat4(), -90.0f * 3.14159f / 180.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-	// glm::mat4 mod = glm::mat4();
+	glm::mat4 mod = glm::translate(glm::mat4(), playerLocation);
+	mod = glm::rotate(mod, playerAngle + (float) M_PI/2.0f, glm::vec3(0, 1, 0));
+	mod = glm::rotate(mod, -90.0f * 3.14159f / 180.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 	mod = glm::scale(mod, glm::vec3(0.04f, 0.04f, 0.04f));
 	glUniformMatrix4fv(pt_model_location, 1, GL_FALSE, &mod[0][0]);
 	glUniformMatrix4fv(pt_view_location, 1, GL_FALSE, &viewMatrix[0][0]);
 	glUniformMatrix4fv(pt_projection_location, 1, GL_FALSE, &projectionMatrix[0][0]);
 
 	/* Calculate current and next frames */
-	Animate(&md5animation, &animInfo, deltaTime);
+	if(playerMove != 0 || systems.size() > 1) Animate(&md5animation, &animInfo, deltaTime);
 
 	/* Interpolate skeletons between two frames */
 	InterpolateSkeletons (md5animation.skelFrames[animInfo.curr_frame],
@@ -804,8 +838,10 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 
 	// Use our texture shader program
 	textureShaderProgram->useProgram();
-
-	glUniformMatrix4fv(uniform_modelMtx_loc, 1, GL_FALSE, &m[0][0]);
+	glm::mat4 sky;
+	if(playerView) sky = glm::translate(glm::mat4(), eyePoint + playerLocation);
+	else sky = glm::translate(glm::mat4(), eyePoint);
+	glUniformMatrix4fv(uniform_modelMtx_loc, 1, GL_FALSE, &sky[0][0]);
 	glUniformMatrix4fv(uniform_viewProjetionMtx_loc, 1, GL_FALSE, &vp[0][0]);
 	glUniform1ui(uniform_tex_loc, GL_TEXTURE0);
 	
@@ -825,6 +861,7 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	glUniform4fv(uniform_phong_la_loc, 2, (const GLfloat*) &lightA[0]);
 	glUniform4fv(uniform_phong_ld_loc, 2, (const GLfloat*) &lightD[0]);
 	glUniform4fv(uniform_phong_ls_loc, 2, (const GLfloat*) &lightS[0]);
+	glUniform3fv(uniform_phong_pc_loc, 1, (const GLfloat*) &playerLocation[0]);
 	glUniformMatrix4fv(uniform_phong_v_loc, 1, GL_FALSE, &viewMatrix[0][0]);
 	glUniformMatrix4fv(uniform_phong_p_loc, 1, GL_FALSE, &projectionMatrix[0][0]);
 	glUniform1i(uniform_phong_txtr_loc, GL_TEXTURE0);
@@ -840,6 +877,17 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
 	
+	glm::vec3 pl(9999, 9999, 9999);
+	glUniform3fv(uniform_phong_pc_loc, 1, &pl[0]);
+	glm::mat4 plat = glm::translate(glm::mat4(), glm::vec3(-platformSize*2.0f, 0, 0));
+	mv = viewMatrix * plat;
+	nMtx = glm::transpose(glm::inverse(mv));
+	glUniformMatrix4fv(uniform_phong_mv_loc, 1, GL_FALSE, &mv[0][0]);
+	glUniformMatrix4fv(uniform_phong_norm_loc, 1, GL_FALSE, &nMtx[0][0]);
+	platform->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
+				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
+				GL_TEXTURE0);
+			
 	// draw the trees
 	glBindTexture(GL_TEXTURE_2D, treeTextureHandle);
 	trees->drawBillboard(m, viewMatrix);
@@ -901,7 +949,25 @@ void modifyLight() {
 	light1Angle += 0.02;
 	lightD[1] = glm::mix(lightDO, lightDN, (light1Angle/6.24));
 	lightPos[1] = glm::vec3(20*cos(light1Angle), 10, 20*sin(light1Angle));
-	
+}
+
+//Set the players direction after updating the playerAngle
+void recomputePlayerDirection(){
+	playerAngle += 0.1 * playerRotate;
+	if(playerAngle >= 6.28) playerAngle -= 6.28;
+	if(playerAngle <= 0) playerAngle += 6.28;
+	playerDirection = glm::normalize(glm::vec3(-glm::sin(playerAngle), 0, -glm::cos(playerAngle)));
+} 
+
+//Move player one step in their current direction
+void movePlayer(){
+	if(playerMove == 0) return;
+	glm::vec3 playerLocationTest = playerLocation + playerDirection * (float) playerMove * 0.16f;
+	GLfloat test = platformSize;
+	if(playerLocationTest.z < test-5.0f && playerLocationTest.z > -test+5.0f && playerLocationTest.x < test-1.0f && playerLocationTest.x > -test+1.0f){
+		playerLocation = playerLocationTest;
+	}
+	if(playerView) trees->updateBillboardAngle(eyePoint + playerLocation);
 }
 
 ///*****************************************************************************
@@ -947,6 +1013,9 @@ int main(int argc, char *argv[])
 		// when using a Retina display the actual window can be larger than the requested window.  Therefore
 		// query what the actual size of the window we are rendering to is.
 
+		recomputePlayerDirection();
+		movePlayer();
+		
 		last_time = current_time;	 // time the last frame was rendered
 		current_time = glfwGetTime(); // time this frame is starting at
 
@@ -962,7 +1031,9 @@ int main(int argc, char *argv[])
 		glm::mat4 projectionMatrix = glm::perspective(45.0f, windowWidth / (float)windowHeight, 0.001f, 1000.0f);
 
 		// set up our look at matrix to position our camera
-		glm::mat4 viewMatrix = glm::lookAt(eyePoint, lookAtPoint, upVector);
+		glm::mat4 viewMatrix;
+		if(playerView) viewMatrix = glm::lookAt( eyePoint + playerLocation, playerLocation, upVector );
+		else viewMatrix = glm::lookAt(eyePoint, lookAtPoint, upVector);
 
 		modifyLight();
 		renderScene(viewMatrix, projectionMatrix, current_time - last_time);

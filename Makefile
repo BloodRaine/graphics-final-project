@@ -22,7 +22,7 @@
 ########################################
 
 TARGET = aaru_park
-OBJECTS = src/main.o src/ParticleSystem.o src/FountainParticleSystem.o src/FireworkParticleSystem.o src/md5anim.o src/md5mesh.o src/Billboard.o
+OBJECTS = src/main.o src/ParticleSystem.o src/FountainParticleSystem.o src/FireworkParticleSystem.o src/md5anim.o src/md5mesh.o src/Billboard.o src/ShowerParticleSystem.o
 
 LOCAL_INC_PATH = ../include
 LOCAL_LIB_PATH = ../lib
@@ -145,7 +145,7 @@ $(TARGET): $(OBJECTS)
 	$(CXX) $(CFLAGS) -o $@ $^ $(LIBPATH) $(LIBS)
 
 # Ensure the bin/ directories are created.
-$(SRCS): | bin
+$(SRCS): bin
 
 # Mirror the directory structure of src/ under bin/
 bin:

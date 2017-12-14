@@ -6,12 +6,11 @@
 
 #version 330 core
 
-// TODO J: add varying input
 in vec2 texCoord;
+uniform vec3 color = vec3(1, 1, 1);
 
 out vec4 fragColorOut;
 
-// TODO K: add texture uniform
 uniform sampler2D tex;
 
 
@@ -20,7 +19,9 @@ void main() {
     //*****************************************
     //******* Final Color Calculations ********
     //*****************************************
-    
-    // TODO L: load texel
-    fragColorOut = texture(tex, texCoord);
+   
+	vec4 texel = texture(tex, texCoord);
+	if(texel.a < 0.1) discard;
+	if(texel.a < 0.4) texel.a = 0.4;
+    fragColorOut = vec4(color, texel.a);
 }
