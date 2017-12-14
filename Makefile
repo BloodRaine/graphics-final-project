@@ -27,7 +27,7 @@ OBJECTS = src/main.o src/ParticleSystem.o src/FountainParticleSystem.o src/md5an
 LOCAL_INC_PATH = ../include
 LOCAL_LIB_PATH = ../lib
 
-BUILDING_IN_LAB = 0
+BUILDING_IN_LAB = 1
 
 #########################################################################################
 #########################################################################################
@@ -145,7 +145,7 @@ $(TARGET): $(OBJECTS)
 	$(CXX) $(CFLAGS) -o $@ $^ $(LIBPATH) $(LIBS)
 
 # Ensure the bin/ directories are created.
-$(SRCS): | bin
+$(SRCS): bin
 
 # Mirror the directory structure of src/ under bin/
 bin:

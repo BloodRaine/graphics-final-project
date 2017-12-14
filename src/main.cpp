@@ -76,6 +76,7 @@ CSCI441::ShaderProgram *modelPhongShaderProgram = NULL;
 GLint uniform_phong_mv_loc, uniform_phong_v_loc, uniform_phong_p_loc, uniform_phong_norm_loc;
 GLint uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_ma_loc, uniform_phong_s_loc;
 GLint uniform_phong_lp_loc, uniform_phong_la_loc, uniform_phong_ld_loc, uniform_phong_ls_loc;
+GLint uniform_phong_pc_loc;
 GLint uniform_phong_txtr_loc, attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc;
 
 CSCI441::ModelLoader *model = NULL;
@@ -575,6 +576,7 @@ void setupShaders()
 	uniform_phong_la_loc = modelPhongShaderProgram->getUniformLocation("lightAmbient");
 	uniform_phong_ld_loc = modelPhongShaderProgram->getUniformLocation("lightDiffuse");
 	uniform_phong_ls_loc = modelPhongShaderProgram->getUniformLocation("lightSpecular");
+	uniform_phong_pc_loc = modelPhongShaderProgram->getUniformLocation("playerCoord");
 	attrib_phong_vpos_loc = modelPhongShaderProgram->getAttributeLocation("vPos");
 	attrib_phong_vnorm_loc = modelPhongShaderProgram->getAttributeLocation("vNormal");
 	attrib_phong_vtex_loc = modelPhongShaderProgram->getAttributeLocation("vTexCoord");
@@ -832,6 +834,7 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	glUniform4fv(uniform_phong_la_loc, 2, (const GLfloat*) &lightA[0]);
 	glUniform4fv(uniform_phong_ld_loc, 2, (const GLfloat*) &lightD[0]);
 	glUniform4fv(uniform_phong_ls_loc, 2, (const GLfloat*) &lightS[0]);
+	glUniform3fv(uniform_phong_pc_loc, 1, (const GLfloat*) &playerLocation[0]);
 	glUniformMatrix4fv(uniform_phong_v_loc, 1, GL_FALSE, &viewMatrix[0][0]);
 	glUniformMatrix4fv(uniform_phong_p_loc, 1, GL_FALSE, &projectionMatrix[0][0]);
 	glUniform1i(uniform_phong_txtr_loc, GL_TEXTURE0);
@@ -856,6 +859,9 @@ void renderScene(glm::mat4 viewMatrix, glm::mat4 projectionMatrix, double deltaT
 	platform->draw(attrib_phong_vpos_loc, attrib_phong_vnorm_loc, attrib_phong_vtex_loc,
 				uniform_phong_md_loc, uniform_phong_ms_loc, uniform_phong_s_loc, uniform_phong_ma_loc,
 				GL_TEXTURE0);
+				
+	glm::vec3 pl(999999, 999999, 999999);
+	glUniform3fv(uniform_phong_pc_loc, 1, (const GLfloat*) &pl[0]);
 	// draw the trees
 	glBindTexture(GL_TEXTURE_2D, treeTextureHandle);
 	trees->drawBillboard(m, viewMatrix);
@@ -929,6 +935,7 @@ void recomputePlayerDirection(){
 
 //Move player one step in their current direction
 void movePlayer(){
+	if(playerMove == 0) return;
 	glm::vec3 playerLocationTest = playerLocation + playerDirection * (float) playerMove * 0.16f;
 	GLfloat test = platformSize;
 	if(playerLocationTest.z < test-5.0f && playerLocationTest.z > -test+5.0f && playerLocationTest.x < test-1.0f && playerLocationTest.x > -test+1.0f){

@@ -9,11 +9,14 @@ out vec3 lightVec[2];
 out vec3 halfwayVec[2];
 out vec2 texCoord;
 
+out vec3 distToPlayer;
+
 uniform mat4 modelviewMtx;
 uniform mat4 viewMtx;
 uniform mat4 projectionMtx;
 uniform mat4 normalMtx;
 
+uniform vec3 playerCoord;
 uniform vec3 lightPos[2];
 
 void main() {
@@ -27,6 +30,7 @@ void main() {
 		halfwayVec[i] = normalize( cameraVec + lightVec[i] );
 	}
 	
+	distToPlayer = playerCoord - vPos;
 	
     texCoord = vTexCoord;
 }
